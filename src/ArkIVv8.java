@@ -17,6 +17,7 @@ import javax.swing.border.LineBorder;
 import utilities.UniversalFactory;
 import utilities.UniversalThemes;
 import utilities.PathResolver;
+import java.awt.event.MouseEvent;
 
 import Menu.FileMenu;
 import Menu.EditMenu;
@@ -24,6 +25,7 @@ import Menu.SettingsMenu;
 
 import Registers.RegisterManager;
 import Registers.RegisterItem;
+import Registers.RegisterContextMenu;
 
 import com.google.gson.*;
 
@@ -61,7 +63,7 @@ public class ArkIVv8 implements ActionListener{
             this::deselectAll,
             () -> SwingUtilities.invokeLater(() -> {
                 inputArea.requestFocusInWindow();
-                UniversalThemes.flashBorder(inputArea, UniversalThemes.ACCENT_COLOR, UniversalThemes.BORDER_COLOR1);
+                UniversalThemes.flashBorder(inputArea, UniversalThemes.ACCENT_COLOR, UniversalThemes.BORDER_COLOR1, 2);
             })
     );
 
@@ -82,6 +84,11 @@ public class ArkIVv8 implements ActionListener{
     private JPanel registerListPanel;
     private int currentRegisterId;
     private final java.util.List<RegisterItem> registerItemComponents = new ArrayList<>();
+    private JPanel addRegisterRow;
+
+    private JPanel unrecognizedListPanel;
+    private JLabel unrecognizedSectionLabel;
+    private JScrollPane unrecognizedScrollPane;
 
     public ArkIVv8() {
 
@@ -641,10 +648,78 @@ public class ArkIVv8 implements ActionListener{
         registerScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         registerScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         UniversalThemes.applyScrollbarTheme(registerScrollPane);
-        registerScrollPane.setPreferredSize(new Dimension(0, 160));
-        registerScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 160));
 
+        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+        int recognizedListHeight = screenSize.height / 2;
+        registerScrollPane.setPreferredSize(new Dimension(0, recognizedListHeight));
+        registerScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, recognizedListHeight));
+
+        JButton addRegisterButton = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                int cx = getWidth() / 2, cy = getHeight() / 2;
+                int arm = 7;
+
+                g2.setColor(UniversalThemes.TXT_SELECTED);
+                g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.drawLine(cx - arm, cy, cx + arm, cy);
+                g2.drawLine(cx, cy - arm, cx, cy + arm);
+
+                g2.dispose();
+            }
+        };
+        addRegisterButton.setBackground(UniversalThemes.ACCENT_COLOR);
+        addRegisterButton.setForeground(UniversalThemes.TXT_SELECTED);
+        addRegisterButton.setBorder(new LineBorder(UniversalThemes.ACCENT_COLOR_DARK, 2));
+        addRegisterButton.setPreferredSize(new Dimension(36, 28));
+        addRegisterButton.setUI(new UniversalThemes.NoPressedButtonUI());
+        addRegisterButton.setFocusable(false);
+        UniversalThemes.ClickEffect(addRegisterButton);
+        addRegisterButton.addActionListener(e -> handleCreateRegister());
+
+        addRegisterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
+        addRegisterRow.setBackground(UniversalThemes.BG_SIDEBAR);
+        addRegisterRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        addRegisterRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        addRegisterRow.add(addRegisterButton);
+
+        // ── Recognized registers go in first ──────────────────────────────
         sidebarPanel.add(registerScrollPane);
+
+        // ── Unrecognized Registers section goes below ─────────────────────
+        JPanel separatorPanel = new JPanel();
+        separatorPanel.setBackground(UniversalThemes.BG_SIDEBAR);
+        separatorPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UniversalThemes.BORDER_COLOR2));
+        separatorPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        separatorPanel.setPreferredSize(new Dimension(0, 1));
+
+        unrecognizedSectionLabel = new JLabel("Unrecognized Registers");
+        unrecognizedSectionLabel.setFont(UniversalThemes.UI_FONT_SMALL2);
+        unrecognizedSectionLabel.setForeground(UniversalThemes.DISABLED_TEXT);
+        unrecognizedSectionLabel.setBorder(BorderFactory.createEmptyBorder(8, 10, 4, 10));
+        unrecognizedSectionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        unrecognizedListPanel = new JPanel();
+        unrecognizedListPanel.setLayout(new BoxLayout(unrecognizedListPanel, BoxLayout.Y_AXIS));
+        unrecognizedListPanel.setBackground(UniversalThemes.BG_SIDEBAR);
+
+        unrecognizedScrollPane = new JScrollPane(unrecognizedListPanel);
+        unrecognizedScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        unrecognizedScrollPane.getViewport().setBackground(UniversalThemes.BG_SIDEBAR);
+        unrecognizedScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        unrecognizedScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        UniversalThemes.applyScrollbarTheme(unrecognizedScrollPane);
+        int unrecognizedHeight = screenSize.height / 2;
+        unrecognizedScrollPane.setPreferredSize(new Dimension(0, unrecognizedHeight));
+        unrecognizedScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, unrecognizedHeight));
+
+        sidebarPanel.add(separatorPanel);
+        sidebarPanel.add(unrecognizedSectionLabel);
+        sidebarPanel.add(unrecognizedScrollPane);
     }
 
     private void refreshRegisterList() {
@@ -652,14 +727,145 @@ public class ArkIVv8 implements ActionListener{
         registerItemComponents.clear();
 
         for (RegisterManager.RegisterEntry entry : registerManager.getRegisters()) {
-            RegisterItem item = new RegisterItem(entry, () -> switchToRegister(entry));
+            RegisterItem item = new RegisterItem(
+                    entry,
+                    () -> switchToRegister(entry),
+                    (comp, e) -> showRegisterContextMenu(entry, comp, e)
+            );
             item.setSelected(entry.id == currentRegisterId);
             registerItemComponents.add(item);
             registerListPanel.add(item);
         }
 
+        registerListPanel.add(addRegisterRow);
+
         registerListPanel.revalidate();
         registerListPanel.repaint();
+
+        refreshUnrecognizedList();
+    }
+
+    private void refreshUnrecognizedList() {
+        unrecognizedListPanel.removeAll();
+
+        List<RegisterManager.UnrecognizedEntry> unrecognized = registerManager.getUnrecognizedEntries();
+        boolean hasUnrecognized = !unrecognized.isEmpty();
+
+        unrecognizedSectionLabel.setVisible(hasUnrecognized);
+        unrecognizedScrollPane.setVisible(hasUnrecognized);
+
+        for (RegisterManager.UnrecognizedEntry entry : unrecognized) {
+            RegisterItem item = new RegisterItem(
+                    entry.displayName,
+                    () -> UniversalThemes.showPopup(frame,
+                            "This register is unrecognized and read-only.\nRight-click it to Recognize or Delete.",
+                            "Unrecognized Register"),
+                    (comp, e) -> showUnrecognizedContextMenu(entry, comp, e)
+            );
+            unrecognizedListPanel.add(item);
+        }
+
+        unrecognizedListPanel.revalidate();
+        unrecognizedListPanel.repaint();
+    }
+
+    private void showUnrecognizedContextMenu(RegisterManager.UnrecognizedEntry entry, Component invoker, MouseEvent e) {
+        RegisterContextMenu.showForUnrecognized(invoker, e.getX(), e.getY(),
+                new RegisterContextMenu.UnrecognizedHandler() {
+                    @Override
+                    public void onRecognize() {
+                        SwingUtilities.invokeLater(() -> {
+                            String name = promptForRegisterName();
+                            if (name == null) return; // user cancelled -- do nothing
+                            registerManager.recognizeFile(entry.filename, name);
+                            refreshRegisterList();
+                        });
+                    }
+
+                    @Override
+                    public void onDelete() {
+                        SwingUtilities.invokeLater(() -> {
+                            boolean confirmed = UniversalThemes.showConfirmPopup(
+                                    frame,
+                                    "Delete unrecognized file \"" + entry.filename + "\"? This cannot be undone.",
+                                    "Confirm Delete"
+                            );
+                            if (confirmed) {
+                                File f = new File(registerManager.getAssetsPathPublic(), entry.filename);
+                                f.delete();
+                                refreshRegisterList();
+                            }
+                        });
+                    }
+                });
+    }
+
+    private void handleCreateRegister() {
+        String name = promptForRegisterName();
+        if (name == null) return; // user cancelled
+
+        registerManager.createRegister(name);
+        refreshRegisterList();
+    }
+
+    private String promptForRegisterName() {
+        JTextField nameField = new JTextField(18);
+        nameField.setBackground(UniversalThemes.BG_PANEL);
+        nameField.setForeground(UniversalThemes.TXT_PRIMARY);
+        nameField.setCaretColor(UniversalThemes.ACCENT_COLOR);
+        nameField.setFont(UniversalThemes.UI_FONT_BIG);
+        nameField.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
+
+        JLabel label = new JLabel("Register name :");
+        label.setForeground(UniversalThemes.TXT_PRIMARY);
+        label.setFont(UniversalThemes.UI_FONT_BIG);
+
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
+        panel.setBackground(UniversalThemes.BG_MAIN);
+        panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        panel.add(label, BorderLayout.NORTH);
+        panel.add(nameField, BorderLayout.CENTER);
+
+        final String[] result = { null };
+        JDialog dialog = new JDialog(frame, "New Register", true);
+
+        InputMap im = nameField.getInputMap(JComponent.WHEN_FOCUSED);
+        ActionMap am = nameField.getActionMap();
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "confirm");
+        am.put("confirm", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                result[0] = nameField.getText().trim();
+                dialog.dispose();
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "cancel");
+        am.put("cancel", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                result[0] = null;
+                dialog.dispose();
+            }
+        });
+
+        dialog.getContentPane().add(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(frame);
+        dialog.setResizable(false);
+
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                result[0] = null;
+            }
+        });
+
+        SwingUtilities.invokeLater(nameField::requestFocusInWindow);
+        dialog.setVisible(true); // blocks until dispose()
+
+        return result[0]; // null string here means "blank" -> RegisterManager applies default name
     }
 
     private void switchToRegister(RegisterManager.RegisterEntry entry) {
@@ -689,6 +895,198 @@ public class ArkIVv8 implements ActionListener{
         taskPanel.repaint();
 
         refreshRegisterList();
+    }
+
+    private void showRegisterContextMenu(RegisterManager.RegisterEntry entry, Component invoker, MouseEvent e) {
+        List<RegisterManager.RegisterEntry> sorted = registerManager.getRegisters();
+        int index = sorted.indexOf(entry);
+        boolean isFirst = index == 0;
+        boolean isLast = index == sorted.size() - 1;
+        boolean isDefault = entry.id == registerManager.getDefaultRegisterId();
+        boolean canDelete = sorted.size() > 1;
+
+        RegisterContextMenu.show(invoker, e.getX(), e.getY(), isFirst, isLast, isDefault, canDelete,
+                new RegisterContextMenu.Handler() {
+                    @Override
+                    public void onRename() {
+                        SwingUtilities.invokeLater(() -> {
+                            String newName = promptForRenameRegister(entry.name);
+                            if (newName != null) {
+                                registerManager.renameRegister(entry.id, newName);
+                                refreshRegisterList();
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onMoveUp() {
+                        registerManager.reorder(entry.id, -1);
+                        refreshRegisterList();
+                    }
+
+                    @Override
+                    public void onMoveDown() {
+                        registerManager.reorder(entry.id, 1);
+                        refreshRegisterList();
+                    }
+
+                    @Override
+                    public void onSetDefault() {
+                        registerManager.setDefault(entry.id);
+                        refreshRegisterList();
+                    }
+
+                    @Override
+                    public void onDelete() {
+                        SwingUtilities.invokeLater(() -> handleDeleteRegister(entry));
+                    }
+                });
+    }
+
+    private void handleDeleteRegister(RegisterManager.RegisterEntry entry) {
+        if (registerManager.getRegisters().size() <= 1) {
+            UniversalThemes.showPopup(frame, "You can't delete the only remaining register.", "Cannot Delete");
+            return;
+        }
+
+        Integer choice = promptDeleteRegisterChoice(entry.name);
+        if (choice == null) return; // cancelled
+
+        boolean deleteFile = choice == 1;
+        boolean wasCurrent = (entry.id == currentRegisterId);
+
+        registerManager.deleteRegister(entry.id, deleteFile);
+
+        if (wasCurrent) {
+            RegisterManager.RegisterEntry fallback = registerManager.getDefaultRegister();
+            if (fallback == null) {
+                fallback = registerManager.getRegisters().get(0);
+            }
+            switchToRegister(fallback);
+        } else {
+            refreshRegisterList();
+        }
+    }
+
+    private Integer promptDeleteRegisterChoice(String registerName) {
+        final Integer[] result = { null };
+
+        JDialog dialog = new JDialog(frame, "Delete Register", true);
+        dialog.setResizable(false);
+        dialog.setLayout(new BorderLayout());
+
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(UniversalThemes.BG_MAIN);
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
+
+        JLabel messageLabel = new JLabel("<html>Delete \"" + registerName + "\"?<br>Choose how you'd like to proceed.</html>");
+        messageLabel.setFont(UniversalThemes.UI_FONT_BIG);
+        messageLabel.setForeground(UniversalThemes.TXT_PRIMARY);
+        mainPanel.add(messageLabel, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        buttonPanel.setBackground(UniversalThemes.BG_MAIN);
+
+        JButton deleteFileButton = new JButton(" Delete File ");
+        JButton removeOnlyButton = new JButton(" Remove From List Only ");
+        JButton cancelButton = new JButton(" Cancel ");
+
+        for (JButton b : new JButton[]{deleteFileButton, removeOnlyButton, cancelButton}) {
+            b.setFont(UniversalThemes.UI_FONT_SMALL3);
+            b.setUI(new UniversalThemes.NoPressedButtonUI());
+            b.setFocusable(false);
+        }
+
+        deleteFileButton.setBackground(UniversalThemes.DANGER_COLOR);
+        deleteFileButton.setForeground(Color.BLACK);
+        deleteFileButton.setBorder(new LineBorder(UniversalThemes.DANGER_COLOR.darker(), 2));
+
+        removeOnlyButton.setBackground(UniversalThemes.BG_COMPONENT);
+        removeOnlyButton.setForeground(UniversalThemes.TXT_PRIMARY);
+        removeOnlyButton.setBorder(new LineBorder(UniversalThemes.BORDER_COLOR2, 2));
+
+        cancelButton.setBackground(UniversalThemes.BG_COMPONENT);
+        cancelButton.setForeground(UniversalThemes.TXT_PRIMARY);
+        cancelButton.setBorder(new LineBorder(UniversalThemes.BORDER_COLOR2, 2));
+
+        deleteFileButton.addActionListener(e -> { result[0] = 1; dialog.dispose(); });
+        removeOnlyButton.addActionListener(e -> { result[0] = 0; dialog.dispose(); });
+        cancelButton.addActionListener(e -> { result[0] = null; dialog.dispose(); });
+
+        buttonPanel.add(deleteFileButton);
+        buttonPanel.add(removeOnlyButton);
+        buttonPanel.add(cancelButton);
+
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+        dialog.add(mainPanel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
+
+        return result[0];
+    }
+
+    private String promptForRenameRegister(String currentName) {
+        JTextField nameField = new JTextField(currentName, 18);
+        nameField.setBackground(UniversalThemes.BG_PANEL);
+        nameField.setForeground(UniversalThemes.TXT_PRIMARY);
+        nameField.setCaretColor(UniversalThemes.ACCENT_COLOR);
+        nameField.setFont(UniversalThemes.UI_FONT_BIG);
+        nameField.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
+
+        JLabel label = new JLabel("Rename register:");
+        label.setForeground(UniversalThemes.TXT_PRIMARY);
+        label.setFont(UniversalThemes.UI_FONT_BIG);
+
+        JPanel panel = new JPanel(new BorderLayout(0, 8));
+        panel.setBackground(UniversalThemes.BG_MAIN);
+        panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        panel.add(label, BorderLayout.NORTH);
+        panel.add(nameField, BorderLayout.CENTER);
+
+        final String[] result = { null };
+        JDialog dialog = new JDialog(frame, "Rename Register", true);
+
+        InputMap im = nameField.getInputMap(JComponent.WHEN_FOCUSED);
+        ActionMap am = nameField.getActionMap();
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "confirm");
+        am.put("confirm", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String text = nameField.getText().trim();
+                result[0] = text.isEmpty() ? null : text;
+                dialog.dispose();
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "cancel");
+        am.put("cancel", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                result[0] = null;
+                dialog.dispose();
+            }
+        });
+
+        dialog.getContentPane().add(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(frame);
+        dialog.setResizable(false);
+        dialog.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                result[0] = null;
+            }
+        });
+
+        SwingUtilities.invokeLater(() -> {
+            nameField.requestFocusInWindow();
+            nameField.selectAll();
+        });
+        dialog.setVisible(true);
+
+        return result[0];
     }
 
     @Override
@@ -1107,6 +1505,8 @@ public class ArkIVv8 implements ActionListener{
             InputMap im = this.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
             ActionMap am = this.getActionMap();
 
+            InputMap imWindow = this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+
             //Edit Task
             im.put(KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK), "Edit");
             am.put("Edit", new AbstractAction() {
@@ -1129,14 +1529,27 @@ public class ArkIVv8 implements ActionListener{
                 }
             });
 
-            //add subtask to task
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK), "addSubTask");
-            am.put("addSubTask", new AbstractAction() {
+
+            //add subEntry to Entry
+            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK), "addSubEntry");
+            am.put("addSubEntry", new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     if (isSelected) {
                         createSubtask();
                     }
+                }
+            });
+
+            //Find
+            imWindow.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK), "Find");
+            am.put("Find", new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    searchBar.requestFocus();
+                    UniversalThemes.flashBorder(searchBar, UniversalThemes.ACCENT_COLOR, UniversalThemes.BORDER_COLOR2, 1);
+                    //searchBar.setBorder(BorderFactory.createMatteBorder(1,1,1,1, UniversalThemes.BORDER_COLOR2));
+
                 }
             });
 

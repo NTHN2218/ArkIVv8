@@ -265,4 +265,28 @@ public class RegisterManager {
         for (RegisterEntry r : registers) max = Math.max(max, r.id);
         return max + 1;
     }
+
+    public static class UnrecognizedEntry {
+        public final String filename;
+        public final String displayName;
+
+        public UnrecognizedEntry(String filename, String displayName) {
+            this.filename = filename;
+            this.displayName = displayName;
+        }
+    }
+
+    public List<UnrecognizedEntry> getUnrecognizedEntries() {
+        List<UnrecognizedEntry> result = new ArrayList<>();
+        List<String> filenames = scanUnrecognizedFiles();
+        for (int i = 0; i < filenames.size(); i++) {
+            result.add(new UnrecognizedEntry(filenames.get(i), "Unrecognized Reg" + (i + 1)));
+        }
+        return result;
+    }
+
+    public String getAssetsPathPublic() {
+        return assetsPath;
+    }
 }
+

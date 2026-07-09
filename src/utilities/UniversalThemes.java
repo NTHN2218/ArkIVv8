@@ -30,6 +30,7 @@ public class UniversalThemes {
     public static final Color ACCENT_COLOR    = new Color(0x2fafbc);  //0xE67E22
     public static final Color ACCENT_COLOR_DARK = new Color(0x2b929d);  //0xC66A1A
     public static final Color SEARCH_HIGHLIGHT_COLOR = new Color(0x2b929d); // distinct from ACCENT_COLOR
+    public static final Color DANGER_COLOR = new Color(0xE06C75); // destructive actions (delete)
 
 //  public static final Color ACCENT_COLOR    = new Color(0xE67E22);
 //  public static final Color ACCENT_COLOR_DARK = new Color(0xC66A1A);
@@ -563,19 +564,19 @@ public class UniversalThemes {
         });
     }
 
-    public static void flashBorder(JComponent component, Color flashColor, Color normalColor) {
+    public static void flashBorder(JComponent component, Color flashColor, Color normalColor, int borderWidth) {
         final int[] count = {0};
         Timer timer = new Timer(100, null);
         timer.addActionListener(e -> {
             if (count[0] % 2 == 0) {
-                component.setBorder(BorderFactory.createMatteBorder(2, 2, 2, 2, flashColor));
+                component.setBorder(BorderFactory.createMatteBorder(borderWidth, borderWidth, borderWidth, borderWidth, flashColor));
             } else {
-                component.setBorder(BorderFactory.createMatteBorder(2, 2, 2, 2, normalColor));
+                component.setBorder(BorderFactory.createMatteBorder(borderWidth, borderWidth, borderWidth, borderWidth, normalColor));
             }
             count[0]++;
             if (count[0] >= 6) { // 3 flashes
                 ((Timer) e.getSource()).stop();
-                component.setBorder(BorderFactory.createMatteBorder(2, 2, 2, 2, normalColor));
+                component.setBorder(BorderFactory.createMatteBorder(borderWidth, borderWidth, borderWidth, borderWidth, normalColor));
             }
         });
         timer.start();
