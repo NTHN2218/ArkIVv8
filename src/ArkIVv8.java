@@ -29,6 +29,14 @@ import Registers.RegisterContextMenu;
 
 import com.google.gson.*;
 
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.TreeCellRenderer;
+import javax.swing.plaf.basic.BasicTreeUI;
+import java.awt.event.MouseMotionAdapter;
+
 public class ArkIVv8 implements ActionListener{
     private JFrame frame;
     private JPanel taskPanel;
@@ -81,14 +89,12 @@ public class ArkIVv8 implements ActionListener{
     private JButton searchPrevButton, searchNextButton;
     private String lastSearchedQuery = "";
 
-    private JPanel registerListPanel;
     private int currentRegisterId;
-    private final java.util.List<RegisterItem> registerItemComponents = new ArrayList<>();
-    private JPanel addRegisterRow;
-
-    private JPanel unrecognizedListPanel;
-    private JLabel unrecognizedSectionLabel;
-    private JScrollPane unrecognizedScrollPane;
+    private JTree registerTree;
+    private DefaultMutableTreeNode registerTreeRoot;
+    private DefaultMutableTreeNode registersBranchNode;
+    private DefaultMutableTreeNode unrecognizedBranchNode;
+    private int hoveredTreeRow = -1;
 
     public ArkIVv8() {
 
@@ -638,136 +644,294 @@ public class ArkIVv8 implements ActionListener{
     }
 
     private void createRegisterPanel() {
-        registerListPanel = new JPanel();
-        registerListPanel.setLayout(new BoxLayout(registerListPanel, BoxLayout.Y_AXIS));
-        registerListPanel.setBackground(UniversalThemes.BG_SIDEBAR);
+        registerTreeRoot = new DefaultMutableTreeNode("root");
+        registersBranchNode = new DefaultMutableTreeNode("Registers");
+        unrecognizedBranchNode = new DefaultMutableTreeNode("Unrecognized Registers");
+        registerTreeRoot.add(registersBranchNode);
+        registerTreeRoot.add(unrecognizedBranchNode);
 
-        JScrollPane registerScrollPane = new JScrollPane(registerListPanel);
+        registerTree = new JTree(registerTreeRoot);
+        registerTree.setRootVisible(false);
+        registerTree.setShowsRootHandles(true);
+        registerTree.setRowHeight(28);
+        registerTree.setBackground(UniversalThemes.BG_SIDEBAR);
+        registerTree.setForeground(UniversalThemes.TXT_PRIMARY);
+        registerTree.setFont(UniversalThemes.UI_FONT_SMALL3);
+
+        registerTree.setCellRenderer(new DefaultTreeCellRenderer() {
+            @Override
+            public Component getTreeCellRendererComponent(JTree t, Object value, boolean selected,
+                                                          boolean expanded, boolean leaf, int row, boolean hasFocus) {
+                super.getTreeCellRendererComponent(t, value, selected, expanded, leaf, row, hasFocus);
+
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+                Object userObj = node.getUserObject();
+                boolean isBranch = !leaf;
+
+                setFont(isBranch
+                        ? UniversalThemes.UI_FONT_SMALL3.deriveFont(Font.BOLD)
+                        : UniversalThemes.UI_FONT_SMALL3);
+
+                // Transparent selection styling -- actual row painting handled in Phase 3
+                setBackgroundSelectionColor(new Color(0, 0, 0, 0));
+                setBackgroundNonSelectionColor(new Color(0, 0, 0, 0));
+                setBorderSelectionColor(new Color(0, 0, 0, 0));
+                setOpaque(false);
+
+                if (isBranch) {
+                    setForeground(UniversalThemes.TXT_SECONDARY);
+                } else if (userObj instanceof RegisterManager.UnrecognizedEntry) {
+                    setForeground(UniversalThemes.DISABLED_TEXT);
+                } else if (userObj instanceof RegisterManager.RegisterEntry entry) {
+                    setForeground(entry.id == currentRegisterId
+                            ? UniversalThemes.ACCENT_COLOR
+                            : UniversalThemes.TXT_PRIMARY);
+                } else {
+                    setForeground(UniversalThemes.TXT_PRIMARY);
+                }
+
+                setLeafIcon(null);
+                setOpenIcon(null);
+                setClosedIcon(null);
+                setBorder(BorderFactory.createEmptyBorder(0, isBranch ? 4 : 10, 0, 0));
+
+                return this;
+            }
+        });
+
+        registerTree.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                int row = registerTree.getRowForLocation(10, e.getY());
+                if (row != hoveredTreeRow) {
+                    hoveredTreeRow = row;
+                    registerTree.repaint();
+                }
+            }
+        });
+        registerTree.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseExited(MouseEvent e) {
+                hoveredTreeRow = -1;
+                registerTree.repaint();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) { maybeShowBranchMenu(e); }
+
+            @Override
+            public void mouseReleased(MouseEvent e) { maybeShowBranchMenu(e); }
+
+            private void maybeShowBranchMenu(MouseEvent e) {
+                if (!e.isPopupTrigger()) return;
+
+                int row = registerTree.getRowForLocation(e.getX(), e.getY());
+                if (row == -1) return;
+
+                TreePath path = registerTree.getPathForRow(row);
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+
+                if (node == registersBranchNode) {
+                    showBranchContextMenu(registerTree, e.getX(), e.getY());
+                }
+                // right-click on unrecognizedBranchNode or leaves: no-op here
+                // (leaf right-clicks are handled separately below)
+            }
+        });
+
+        registerTree.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) { maybeShowLeafMenu(e); }
+
+            @Override
+            public void mouseReleased(MouseEvent e) { maybeShowLeafMenu(e); }
+
+            private void maybeShowLeafMenu(MouseEvent e) {
+                if (!e.isPopupTrigger()) return;
+
+                int row = registerTree.getRowForLocation(e.getX(), e.getY());
+                if (row == -1) return;
+
+                TreePath path = registerTree.getPathForRow(row);
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+                if (!node.isLeaf()) return;
+
+                Object userObj = node.getUserObject();
+                if (userObj instanceof RegisterManager.RegisterEntry entry) {
+                    showRegisterContextMenu(entry, registerTree, e);
+                } else if (userObj instanceof RegisterManager.UnrecognizedEntry unrecognized) {
+                    showUnrecognizedContextMenu(unrecognized, registerTree, e);
+                }
+            }
+        });
+
+        final Color ACCENT_OVERLAY = new Color(
+                UniversalThemes.ACCENT_COLOR.getRed(),
+                UniversalThemes.ACCENT_COLOR.getGreen(),
+                UniversalThemes.ACCENT_COLOR.getBlue(),
+                45
+        );
+        final Color HOVER_OVERLAY = new Color(
+                UniversalThemes.ACCENT_COLOR.getRed(),
+                UniversalThemes.ACCENT_COLOR.getGreen(),
+                UniversalThemes.ACCENT_COLOR.getBlue(),
+                22
+        );
+        final int ACCENT_BAR_WIDTH = 3;
+
+        registerTree.setUI(new BasicTreeUI() {
+
+            @Override
+            protected void paintRow(Graphics g, Rectangle clipBounds, Insets insets,
+                                    Rectangle bounds, TreePath path, int row,
+                                    boolean isExpanded, boolean hasBeenExpanded, boolean isLeaf) {
+
+                int treeWidth = registerTree.getWidth();
+                int rowY = bounds.y;
+                int rowH = bounds.height;
+                Graphics2D g2 = (Graphics2D) g;
+
+                g2.setColor(UniversalThemes.BG_SIDEBAR);
+                g2.fillRect(0, rowY, treeWidth, rowH);
+
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+                Object userObj = node.getUserObject();
+                boolean isCurrentRegister = isLeaf && userObj instanceof RegisterManager.RegisterEntry entry
+                        && entry.id == currentRegisterId;
+                boolean isHovered = row == hoveredTreeRow && isLeaf && userObj instanceof RegisterManager.RegisterEntry;
+
+                if (isCurrentRegister) {
+                    g2.setColor(ACCENT_OVERLAY);
+                    g2.fillRect(0, rowY, treeWidth, rowH);
+                    g2.setColor(UniversalThemes.ACCENT_COLOR);
+                    g2.fillRect(0, rowY, ACCENT_BAR_WIDTH, rowH);
+                } else if (isHovered) {
+                    g2.setColor(HOVER_OVERLAY);
+                    g2.fillRect(0, rowY, treeWidth, rowH);
+                }
+
+                if (!isLeaf) {
+                    g2.setColor(UniversalThemes.TXT_SECONDARY);
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    int ax = 6;
+                    int ay = rowY + rowH / 2;
+                    if (isExpanded) {
+                        int[] xs = {ax, ax + 8, ax + 4};
+                        int[] ys = {ay - 3, ay - 3, ay + 3};
+                        g2.fillPolygon(xs, ys, 3);
+                    } else {
+                        int[] xs = {ax, ax, ax + 6};
+                        int[] ys = {ay - 4, ay + 4, ay};
+                        g2.fillPolygon(xs, ys, 3);
+                    }
+                }
+
+                super.paintRow(g, clipBounds, insets, bounds, path, row, isExpanded, hasBeenExpanded, isLeaf);
+            }
+
+            @Override
+            public void paint(Graphics g, JComponent c) {
+                super.paint(g, c);
+
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setColor(new Color(
+                        UniversalThemes.TXT_SECONDARY.getRed(),
+                        UniversalThemes.TXT_SECONDARY.getGreen(),
+                        UniversalThemes.TXT_SECONDARY.getBlue(),
+                        50
+                ));
+                for (int i = 1; i < registerTree.getRowCount(); i++) {
+                    TreePath p = registerTree.getPathForRow(i);
+                    if (p == null) continue;
+                    DefaultMutableTreeNode node = (DefaultMutableTreeNode) p.getLastPathComponent();
+                    if (node.getLevel() == 1) {
+                        Rectangle r = registerTree.getRowBounds(i);
+                        if (r != null) g2.drawLine(0, r.y, c.getWidth(), r.y);
+                    }
+                }
+            }
+        });
+
+        UIManager.put("Tree.paintLines", false);
+        UIManager.put("Tree.repaintWholeRow", true);
+        UIManager.put("Tree.selectionBackground", UniversalThemes.BG_SIDEBAR);
+        UIManager.put("Tree.selectionInactiveBackground", UniversalThemes.BG_SIDEBAR);
+        UIManager.put("Tree.selectionBorderColor", UniversalThemes.BG_SIDEBAR);
+        UIManager.put("Tree.selectionForeground", UniversalThemes.TXT_PRIMARY);
+        UIManager.put("Tree.icon.selectedExpandedColor", UniversalThemes.ACCENT_COLOR);
+        UIManager.put("Tree.icon.selectedCollapsedColor", UniversalThemes.ACCENT_COLOR);
+        UIManager.put("Tree.icon.expandedColor", UniversalThemes.TXT_SECONDARY);
+        UIManager.put("Tree.icon.collapsedColor", UniversalThemes.TXT_SECONDARY);
+
+        registerTree.setToggleClickCount(1);
+
+        registerTree.addTreeSelectionListener(e -> {
+            TreePath path = registerTree.getSelectionPath();
+            if (path == null) return;
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+
+            if (!node.isLeaf()) {
+                registerTree.clearSelection();
+                return;
+            }
+
+            Object userObj = node.getUserObject();
+            if (userObj instanceof RegisterManager.RegisterEntry entry) {
+                if (entry.id != currentRegisterId) {
+                    switchToRegister(entry);
+                }
+            } else if (userObj instanceof RegisterManager.UnrecognizedEntry) {
+                UniversalThemes.showPopup(frame,
+                        "This register is unrecognized and read-only.\nRight-click it to Recognize or Delete.",
+                        "Unrecognized Register");
+            }
+            registerTree.clearSelection(); // avoid stock blue-box selection lingering under our custom paint
+        });
+
+        JScrollPane registerScrollPane = new JScrollPane(registerTree);
         registerScrollPane.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, UniversalThemes.BORDER_COLOR2));
         registerScrollPane.getViewport().setBackground(UniversalThemes.BG_SIDEBAR);
         registerScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         registerScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         UniversalThemes.applyScrollbarTheme(registerScrollPane);
 
-        Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        int recognizedListHeight = screenSize.height / 2;
-        registerScrollPane.setPreferredSize(new Dimension(0, recognizedListHeight));
-        registerScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, recognizedListHeight));
+        registerScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        JButton addRegisterButton = new JButton() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                int cx = getWidth() / 2, cy = getHeight() / 2;
-                int arm = 7;
-
-                g2.setColor(UniversalThemes.TXT_SELECTED);
-                g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.drawLine(cx - arm, cy, cx + arm, cy);
-                g2.drawLine(cx, cy - arm, cx, cy + arm);
-
-                g2.dispose();
-            }
-        };
-        addRegisterButton.setBackground(UniversalThemes.ACCENT_COLOR);
-        addRegisterButton.setForeground(UniversalThemes.TXT_SELECTED);
-        addRegisterButton.setBorder(new LineBorder(UniversalThemes.ACCENT_COLOR_DARK, 2));
-        addRegisterButton.setPreferredSize(new Dimension(36, 28));
-        addRegisterButton.setUI(new UniversalThemes.NoPressedButtonUI());
-        addRegisterButton.setFocusable(false);
-        UniversalThemes.ClickEffect(addRegisterButton);
-        addRegisterButton.addActionListener(e -> handleCreateRegister());
-
-        addRegisterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
-        addRegisterRow.setBackground(UniversalThemes.BG_SIDEBAR);
-        addRegisterRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        addRegisterRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        addRegisterRow.add(addRegisterButton);
-
-        // ── Recognized registers go in first ──────────────────────────────
         sidebarPanel.add(registerScrollPane);
-
-        // ── Unrecognized Registers section goes below ─────────────────────
-        JPanel separatorPanel = new JPanel();
-        separatorPanel.setBackground(UniversalThemes.BG_SIDEBAR);
-        separatorPanel.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, UniversalThemes.BORDER_COLOR2));
-        separatorPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        separatorPanel.setPreferredSize(new Dimension(0, 1));
-
-        unrecognizedSectionLabel = new JLabel("Unrecognized Registers");
-        unrecognizedSectionLabel.setFont(UniversalThemes.UI_FONT_SMALL2);
-        unrecognizedSectionLabel.setForeground(UniversalThemes.DISABLED_TEXT);
-        unrecognizedSectionLabel.setBorder(BorderFactory.createEmptyBorder(8, 10, 4, 10));
-        unrecognizedSectionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        unrecognizedListPanel = new JPanel();
-        unrecognizedListPanel.setLayout(new BoxLayout(unrecognizedListPanel, BoxLayout.Y_AXIS));
-        unrecognizedListPanel.setBackground(UniversalThemes.BG_SIDEBAR);
-
-        unrecognizedScrollPane = new JScrollPane(unrecognizedListPanel);
-        unrecognizedScrollPane.setBorder(BorderFactory.createEmptyBorder());
-        unrecognizedScrollPane.getViewport().setBackground(UniversalThemes.BG_SIDEBAR);
-        unrecognizedScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-        unrecognizedScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-        UniversalThemes.applyScrollbarTheme(unrecognizedScrollPane);
-        int unrecognizedHeight = screenSize.height / 2;
-        unrecognizedScrollPane.setPreferredSize(new Dimension(0, unrecognizedHeight));
-        unrecognizedScrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, unrecognizedHeight));
-
-        sidebarPanel.add(separatorPanel);
-        sidebarPanel.add(unrecognizedSectionLabel);
-        sidebarPanel.add(unrecognizedScrollPane);
     }
-
     private void refreshRegisterList() {
-        registerListPanel.removeAll();
-        registerItemComponents.clear();
+        registersBranchNode.removeAllChildren();
+        unrecognizedBranchNode.removeAllChildren();
 
         for (RegisterManager.RegisterEntry entry : registerManager.getRegisters()) {
-            RegisterItem item = new RegisterItem(
-                    entry,
-                    () -> switchToRegister(entry),
-                    (comp, e) -> showRegisterContextMenu(entry, comp, e)
-            );
-            item.setSelected(entry.id == currentRegisterId);
-            registerItemComponents.add(item);
-            registerListPanel.add(item);
+            registersBranchNode.add(new DefaultMutableTreeNode(entry) {
+                @Override public String toString() { return entry.name; }
+            });
         }
-
-        registerListPanel.add(addRegisterRow);
-
-        registerListPanel.revalidate();
-        registerListPanel.repaint();
-
-        refreshUnrecognizedList();
-    }
-
-    private void refreshUnrecognizedList() {
-        unrecognizedListPanel.removeAll();
 
         List<RegisterManager.UnrecognizedEntry> unrecognized = registerManager.getUnrecognizedEntries();
-        boolean hasUnrecognized = !unrecognized.isEmpty();
-
-        unrecognizedSectionLabel.setVisible(hasUnrecognized);
-        unrecognizedScrollPane.setVisible(hasUnrecognized);
-
         for (RegisterManager.UnrecognizedEntry entry : unrecognized) {
-            RegisterItem item = new RegisterItem(
-                    entry.displayName,
-                    () -> UniversalThemes.showPopup(frame,
-                            "This register is unrecognized and read-only.\nRight-click it to Recognize or Delete.",
-                            "Unrecognized Register"),
-                    (comp, e) -> showUnrecognizedContextMenu(entry, comp, e)
-            );
-            unrecognizedListPanel.add(item);
+            unrecognizedBranchNode.add(new DefaultMutableTreeNode(entry) {
+                @Override public String toString() { return entry.displayName; }
+            });
         }
 
-        unrecognizedListPanel.revalidate();
-        unrecognizedListPanel.repaint();
+        registerTreeRoot.removeAllChildren();
+        registerTreeRoot.add(registersBranchNode);
+        if (!unrecognized.isEmpty()) {
+            registerTreeRoot.add(unrecognizedBranchNode);
+        }
+
+        DefaultTreeModel model = (DefaultTreeModel) registerTree.getModel();
+        model.reload();
+
+        registerTree.expandPath(new TreePath(registersBranchNode.getPath()));
+        if (!unrecognized.isEmpty()) {
+            registerTree.expandPath(new TreePath(unrecognizedBranchNode.getPath()));
+        }
     }
+
+
 
     private void showUnrecognizedContextMenu(RegisterManager.UnrecognizedEntry entry, Component invoker, MouseEvent e) {
         RegisterContextMenu.showForUnrecognized(invoker, e.getX(), e.getY(),
@@ -806,6 +970,39 @@ public class ArkIVv8 implements ActionListener{
 
         registerManager.createRegister(name);
         refreshRegisterList();
+    }
+
+    private void showBranchContextMenu(Component invoker, int x, int y) {
+        JPopupMenu menu = new JPopupMenu();
+        menu.setBackground(UniversalThemes.BG_COMPONENT);
+        menu.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR2, 1));
+
+        JMenuItem newRegisterItem = new JMenuItem("New Register");
+        newRegisterItem.setFont(UniversalThemes.UI_FONT_SMALL2);
+        newRegisterItem.setForeground(UniversalThemes.TXT_PRIMARY);
+        newRegisterItem.setBackground(UniversalThemes.BG_COMPONENT);
+        newRegisterItem.setBorder(BorderFactory.createEmptyBorder(7, 16, 7, 20));
+        newRegisterItem.setOpaque(true);
+        newRegisterItem.addActionListener(e -> handleCreateRegister());
+
+        newRegisterItem.setUI(new javax.swing.plaf.basic.BasicMenuItemUI() {
+            @Override
+            protected void paintBackground(Graphics g, JMenuItem menuItem, Color bgColor) {
+                boolean hovered = menuItem.getModel().isArmed();
+                g.setColor(hovered ? UniversalThemes.BORDER_COLOR1 : UniversalThemes.BG_COMPONENT);
+                g.fillRect(0, 0, menuItem.getWidth(), menuItem.getHeight());
+            }
+
+            @Override
+            protected void paintText(Graphics g, JMenuItem menuItem, Rectangle textRect, String text) {
+                boolean hovered = menuItem.getModel().isArmed();
+                g.setColor(hovered ? UniversalThemes.ACCENT_COLOR : UniversalThemes.TXT_PRIMARY);
+                super.paintText(g, menuItem, textRect, text);
+            }
+        });
+
+        menu.add(newRegisterItem);
+        menu.show(invoker, x, y);
     }
 
     private String promptForRegisterName() {
