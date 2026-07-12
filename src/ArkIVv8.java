@@ -940,19 +940,32 @@ public class ArkIVv8 implements ActionListener{
                     public void onRecognize() {
                         SwingUtilities.invokeLater(() -> {
                             String name = promptForRegisterName();
-                            if (name == null) return; // user cancelled -- do nothing
+                            if (name == null) return;
                             registerManager.recognizeFile(entry.filename, name);
                             refreshRegisterList();
                         });
                     }
 
                     @Override
+                    public void onCopyPath() {
+                        File f = new File(registerManager.getAssetsPathPublic(), entry.filename);
+                        copyPathToClipboard(f.getAbsolutePath());
+                    }
+
+                    @Override
+                    public void onOpenInExplorer() {
+                        File f = new File(registerManager.getAssetsPathPublic(), entry.filename);
+                        openInSystemExplorer(f.getAbsolutePath());
+                    }
+
+                    @Override
                     public void onDelete() {
                         SwingUtilities.invokeLater(() -> {
-                            boolean confirmed = UniversalThemes.showConfirmPopup(
+                            boolean confirmed = UniversalThemes.showDeleteConfirmPopup(
                                     frame,
-                                    "Delete unrecognized file \"" + entry.filename + "\"? This cannot be undone.",
-                                    "Confirm Delete"
+                                    "Delete File",
+                                    entry.filename,
+                                    "It will be permanently removed. This cannot be undone."
                             );
                             if (confirmed) {
                                 File f = new File(registerManager.getAssetsPathPublic(), entry.filename);
@@ -1134,6 +1147,16 @@ public class ArkIVv8 implements ActionListener{
                     }
 
                     @Override
+                    public void onCopyPath() {
+                        copyPathToClipboard(registerManager.getRegisterFilePath(entry));
+                    }
+
+                    @Override
+                    public void onOpenInExplorer() {
+                        openInSystemExplorer(registerManager.getRegisterFilePath(entry));
+                    }
+
+                    @Override
                     public void onDelete() {
                         SwingUtilities.invokeLater(() -> handleDeleteRegister(entry));
                     }
@@ -1141,18 +1164,23 @@ public class ArkIVv8 implements ActionListener{
     }
 
     private void handleDeleteRegister(RegisterManager.RegisterEntry entry) {
+
         if (registerManager.getRegisters().size() <= 1) {
             UniversalThemes.showPopup(frame, "You can't delete the only remaining register.", "Cannot Delete");
             return;
         }
 
-        Integer choice = promptDeleteRegisterChoice(entry.name);
-        if (choice == null) return; // cancelled
+        boolean confirmed = UniversalThemes.showDeleteConfirmPopup(
+                frame,
+                "Delete Register",
+                entry.name,
+                "The register file will be permanently deleted. This cannot be undone."
+        );
+        if (!confirmed) return;
 
-        boolean deleteFile = choice == 1;
         boolean wasCurrent = (entry.id == currentRegisterId);
 
-        registerManager.deleteRegister(entry.id, deleteFile);
+        registerManager.deleteRegister(entry.id, true);
 
         if (wasCurrent) {
             RegisterManager.RegisterEntry fallback = registerManager.getDefaultRegister();
@@ -1162,6 +1190,30 @@ public class ArkIVv8 implements ActionListener{
             switchToRegister(fallback);
         } else {
             refreshRegisterList();
+        }
+    }
+
+    private void copyPathToClipboard(String absolutePath) {
+        java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(absolutePath);
+        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, null);
+        System.out.println("Calling showToast now");
+        UniversalThemes.showToast(frame, "Path copied to clipboard");
+    }
+
+    private void openInSystemExplorer(String absolutePath) {
+        try {
+            File file = new File(absolutePath);
+            String os = System.getProperty("os.name").toLowerCase();
+
+            if (os.contains("win")) {
+                Desktop.getDesktop().open(file.getParentFile());
+            } else if (os.contains("mac")) {
+                new ProcessBuilder("open", "-R", file.getAbsolutePath()).start();
+            } else {
+                Desktop.getDesktop().open(file.getParentFile());
+            }
+        } catch (Exception e) {
+            UniversalThemes.showPopup(frame, "Could not open system explorer.\n" + e.getMessage(), "Error");
         }
     }
 
@@ -1194,9 +1246,9 @@ public class ArkIVv8 implements ActionListener{
             b.setFocusable(false);
         }
 
-        deleteFileButton.setBackground(UniversalThemes.DANGER_COLOR);
+        deleteFileButton.setBackground(UniversalThemes.BG_DELETE_BTN);
         deleteFileButton.setForeground(Color.BLACK);
-        deleteFileButton.setBorder(new LineBorder(UniversalThemes.DANGER_COLOR.darker(), 2));
+        deleteFileButton.setBorder(new LineBorder(UniversalThemes.BG_DELETE_BTN.darker(), 2));
 
         removeOnlyButton.setBackground(UniversalThemes.BG_COMPONENT);
         removeOnlyButton.setForeground(UniversalThemes.TXT_PRIMARY);
@@ -2078,14 +2130,18 @@ public class ArkIVv8 implements ActionListener{
                 }
             }
 
-            String message = hasSubtasks
-                    ? " Delete this Entry and its sub-Entries ?"
-                    : " Delete this Entry ? ";
+            String entryPreview = getRawText().length() > 40
+                    ? getRawText().substring(0, 40) + "..."
+                    : getRawText();
+            String subMessage = hasSubtasks
+                    ? "This will also delete its sub-Entries. "
+                    : "";
 
-            boolean confirmed = UniversalThemes.showConfirmPopup(
+            boolean confirmed = UniversalThemes.showDeleteConfirmPopup(
                     frame,
-                    message,
-                    "Confirm"
+                    "Delete Entry",
+                    entryPreview,
+                    subMessage
             );
 
             if (confirmed) {
