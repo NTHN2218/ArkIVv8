@@ -139,7 +139,7 @@ public class UniversalThemes {
         dismissTimer.start();
     }
 
-    private static RoundedDialog createRoundedDialogShell(Component parent, String titleText) {
+    public static RoundedDialog createRoundedDialogShell(Component parent, String titleText) {
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(parent), Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
@@ -213,14 +213,14 @@ public class UniversalThemes {
         return new RoundedDialog(dialog, body);
     }
 
-    private static void finalizeRoundedDialog(JDialog dialog, Component parent) {
+    public static void finalizeRoundedDialog(JDialog dialog, Component parent) {
         dialog.pack();
         dialog.setShape(new RoundRectangle2D.Double(0, 0, dialog.getWidth(), dialog.getHeight(),
                 DIALOG_CORNER_RADIUS, DIALOG_CORNER_RADIUS));
         dialog.setLocationRelativeTo(parent);
     }
 
-    private static JButton createRoundedDialogButton(String text, Color bg, Color fg, Color hoverBg) {
+    public static JButton createRoundedDialogButton(String text, Color bg, Color fg, Color hoverBg) {
         JButton button = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();

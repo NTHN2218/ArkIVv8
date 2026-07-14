@@ -1687,7 +1687,7 @@ public class ArkIVv8 implements ActionListener{
 //            buttonPanel.add(deleteButton);
 
             if (!isSubtask) {
-                JButton createSubtaskButton = new JButton() {
+                JButton createSubEntryButton = new JButton() {
                     @Override
                     protected void paintComponent(Graphics g) {
                         super.paintComponent(g);
@@ -1705,16 +1705,16 @@ public class ArkIVv8 implements ActionListener{
                         g2.dispose();
                     }
                 };
-//                createSubtaskButton.setFont(UniversalThemes.UI_FONT_EMOJI1);
-                createSubtaskButton.setBackground(UniversalThemes.ACCENT_COLOR);
-                createSubtaskButton.setForeground(UniversalThemes.TXT_SELECTED);
-                createSubtaskButton.setBorder(new LineBorder(UniversalThemes.ACCENT_COLOR_DARK, 2));
-                createSubtaskButton.setPreferredSize(new Dimension(40, 29));
-                createSubtaskButton.setUI(new UniversalThemes.NoPressedButtonUI());
-                UniversalThemes.ClickEffect(createSubtaskButton);
+//                createSubEntryButton.setFont(UniversalThemes.UI_FONT_EMOJI1);
+                createSubEntryButton.setBackground(UniversalThemes.ACCENT_COLOR);
+                createSubEntryButton.setForeground(UniversalThemes.TXT_SELECTED);
+                createSubEntryButton.setBorder(new LineBorder(UniversalThemes.ACCENT_COLOR_DARK, 2));
+                createSubEntryButton.setPreferredSize(new Dimension(40, 29));
+                createSubEntryButton.setUI(new UniversalThemes.NoPressedButtonUI());
+                UniversalThemes.ClickEffect(createSubEntryButton);
 
-                createSubtaskButton.addActionListener(e -> createSubtask());
-                buttonPanel.add(createSubtaskButton);
+                createSubEntryButton.addActionListener(e -> createSubEntry());
+                buttonPanel.add(createSubEntryButton);
 
                 addMouseListener(new MouseAdapter() {
                     public void mousePressed(MouseEvent e) {
@@ -1768,7 +1768,7 @@ public class ArkIVv8 implements ActionListener{
             });
 
             //Delete Task
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "Delete");
+            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, InputEvent.CTRL_DOWN_MASK), "Delete");
             am.put("Delete", new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -1785,7 +1785,7 @@ public class ArkIVv8 implements ActionListener{
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     if (isSelected) {
-                        createSubtask();
+                        createSubEntry();
                     }
                 }
             });
@@ -1934,76 +1934,91 @@ public class ArkIVv8 implements ActionListener{
 
 
         private void editTask() {
-            JPanel panel = new JPanel(new BorderLayout());
-            panel.setBackground(UniversalThemes.BG_MAIN);
+            UniversalThemes.RoundedDialog rd = UniversalThemes.createRoundedDialogShell(frame, "Edit");
 
-            JTextArea field = new JTextArea(getRawText(), 4, 40); // Start with current raw text
-            field.setBackground(UniversalThemes.BG_PANEL);
+            JTextArea field = new JTextArea(getRawText(), 4, 42);
+            field.setBackground(UniversalThemes.BG_COMPONENT);
             field.setForeground(UniversalThemes.TXT_PRIMARY);
             field.setCaretColor(UniversalThemes.ACCENT_COLOR);
-
-
-            // Select all text when field gains focus (better than invokeLater)
-            field.addFocusListener(new FocusAdapter() {
-                @Override
-                public void focusGained(FocusEvent e) {
-                    field.selectAll();
-                }
-            });
-
-            // Auto-sizing and line wrapping
+            field.setFont(UniversalThemes.getCompositeFont(18));
             field.setLineWrap(true);
             field.setWrapStyleWord(true);
+            field.setMargin(new Insets(10, 10, 10, 10));
+            field.setBorder(null);
 
-            // Auto-grow (no forced scrolling) - improved to resize dialog dynamically
+            // Pre-size rows to fit existing content, capped at 10
+            int existingLines = field.getLineCount();
+            field.setRows(Math.min(Math.max(existingLines, 4), 10));
+
+            field.addFocusListener(new FocusAdapter() {
+                @Override public void focusGained(FocusEvent e) { field.selectAll(); }
+            });
+
+            JScrollPane scrollPane = new JScrollPane(field);
+            scrollPane.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
+            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+            UniversalThemes.applyScrollbarTheme(scrollPane);
+            scrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
+            scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
+
+            rd.body.add(scrollPane);
+            rd.body.add(Box.createVerticalStrut(18));
+
+            // Auto-grow + auto-scroll-to-caret
             field.getDocument().addDocumentListener(new DocumentListener() {
-                public void insertUpdate(DocumentEvent e) {
-                    adjustTextAreaHeight();
-                    autoScrollIfAtEnd(field);
-                }
+                public void insertUpdate(DocumentEvent e) { adjust(); scrollToCaret(); }
+                public void removeUpdate(DocumentEvent e) { adjust(); scrollToCaret(); }
+                public void changedUpdate(DocumentEvent e) { adjust(); scrollToCaret(); }
 
-                public void removeUpdate(DocumentEvent e) {
-                    adjustTextAreaHeight();
-                    autoScrollIfAtEnd(field); // Added for consistency
-                }
-
-                public void changedUpdate(DocumentEvent e) {
-                    adjustTextAreaHeight();
-                    autoScrollIfAtEnd(field); // Added for consistency
-                }
-
-                private void adjustTextAreaHeight() {
+                private void adjust() {
                     int rows = field.getLineCount();
                     if (rows > field.getRows()) {
-                        field.setRows(Math.min(rows, 10)); // Max 10 visible rows
-                        // Dynamically resize dialog
-                        SwingUtilities.invokeLater(() -> {
-                            JDialog dialog = (JDialog) SwingUtilities.getWindowAncestor(panel);
-                            if (dialog != null && dialog.isVisible()) {
-                                dialog.pack(); // Repack to grow dialog based on new preferred size
-                            }
-                        });
+                        field.setRows(Math.min(rows, 10));
+                        rd.dialog.pack();
+                        UniversalThemes.finalizeRoundedDialog(rd.dialog, frame);
                     }
                 }
 
-                private void autoScrollIfAtEnd(JTextArea ta) { // Renamed param for clarity
-                    if (ta.getCaretPosition() == ta.getDocument().getLength()) {
-                        SwingUtilities.invokeLater(() -> {
-                            ta.setCaretPosition(ta.getDocument().getLength());
-                        });
+                private void scrollToCaret() {
+                    if (field.getCaretPosition() == field.getDocument().getLength()) {
+                        SwingUtilities.invokeLater(() -> field.setCaretPosition(field.getDocument().getLength()));
                     }
                 }
             });
 
-            // Improved key bindings
+            Runnable submit = () -> {
+                String newText = field.getText(); // preserve whitespace/newlines, don't trim here
+                if (!newText.trim().isEmpty()) {
+                    textArea.setText(newText);
+                    if (!checkBox.isSelected()) {
+                        textArea.setForeground(UniversalThemes.TXT_PRIMARY);
+                    }
+                    deselectThisTask();
+                    saveTasks();
+                    rd.dialog.dispose();
+                } else {
+                    boolean confirmed = UniversalThemes.showDeleteConfirmPopup(
+                            frame,
+                            "Delete Entry",
+                            "empty entry",
+                            "The text was cleared. This cannot be undone."
+                    );
+                    if (confirmed) {
+                        deselectThisTask();
+                        rd.dialog.dispose();
+                        DeleteEmptyTask();
+                    }
+                    // if not confirmed: leave dialog open, let them keep editing
+                }
+            };
+
             InputMap im = field.getInputMap(JComponent.WHEN_FOCUSED);
             ActionMap am = field.getActionMap();
 
-            // Shift+Enter: Insert new line
             im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-newline");
             am.put("insert-newline", new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
+                @Override public void actionPerformed(ActionEvent e) {
                     int caretPos = field.getCaretPosition();
                     String text = field.getText();
                     field.setText(text.substring(0, caretPos) + "\n" + text.substring(caretPos));
@@ -2011,83 +2026,35 @@ public class ArkIVv8 implements ActionListener{
                 }
             });
 
-            // Enter: Submit edit
             im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "submit-edit");
             am.put("submit-edit", new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    String newText = field.getText(); // Don't trim here to preserve whitespace/newlines
-                    if (!newText.trim().isEmpty()) {
-                        // Update the task's textArea with new text
-                        textArea.setText(newText);
-                        boolean isDone = checkBox.isSelected();
-                        if (isDone) {
-                            // Apply strikethrough and gray if "done"
-//                             textArea.setText(newText.replaceAll(".", "̶$0"));
-                        } else {
-                            textArea.setForeground(UniversalThemes.TXT_PRIMARY);
-                        }
-                        deselectThisTask();
-                        saveTasks(); // Now saves the updated (raw or decorated) text
-                    } else {
-                        // Optional: Confirm deletion if text is empty
-                        boolean confirmed = UniversalThemes.showConfirmPopup(
-                                panel,
-                                "Text is empty. Delete this task?",
-                                "Confirm Delete"
-                        );
-
-                        if (confirmed) {
-                            deselectThisTask();
-                            JDialog dialog = (JDialog) SwingUtilities.getWindowAncestor(panel);
-                            if (dialog != null) dialog.dispose();
-                            DeleteEmptyTask();
-                            return; // Don't dispose below
-                        }
-
-                        // If no, just close without changes
-                    }
-                    // Dispose dialog
-                    JDialog dialog = (JDialog) SwingUtilities.getWindowAncestor(panel);
-                    if (dialog != null) {
-                        dialog.dispose();
-                    }
-                }
+                @Override public void actionPerformed(ActionEvent e) { submit.run(); }
             });
 
-            // Scroll pane for field
-            JScrollPane scrollPane = new JScrollPane(field);
-            scrollPane.setBackground(UniversalThemes.BG_PANEL);
-            scrollPane.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
-
-            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
-            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-            UniversalThemes.applyScrollbarTheme(scrollPane);
-
-            // UI styling
-            panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-            field.setFont(UniversalThemes.getCompositeFont(20));
-            field.setMargin(new Insets(10, 10, 10, 10));
-
-
-            panel.add(scrollPane, BorderLayout.CENTER);
-
-            // Create and show dialog
-            JDialog dialog = new JDialog(frame, "Edit Task", true);
-            dialog.getContentPane().add(panel);
-            dialog.pack();
-            dialog.setMinimumSize(new Dimension(600, 200));
-            dialog.setLocationRelativeTo(frame);
-            dialog.addWindowListener(new WindowAdapter() {  //Handles dialog window closing
-                @Override
-                public void windowClosing(WindowEvent e) {
-                    deselectThisTask();
-                }
+            JButton saveButton = UniversalThemes.createRoundedDialogButton("Save", UniversalThemes.ACCENT_COLOR,
+                    UniversalThemes.TXT_SELECTED, UniversalThemes.ACCENT_COLOR_DARK);
+            JButton cancelButton = UniversalThemes.createRoundedDialogButton("Cancel", UniversalThemes.BG_COMPONENT,
+                    UniversalThemes.TXT_PRIMARY, UniversalThemes.BORDER_COLOR1);
+            saveButton.addActionListener(e -> submit.run());
+            cancelButton.addActionListener(e -> {
+                deselectThisTask();
+                rd.dialog.dispose();
             });
-            dialog.setVisible(true);
 
+            JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            buttonRow.setOpaque(false);
+            buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+            buttonRow.add(saveButton);
+            buttonRow.add(cancelButton);
+            rd.body.add(buttonRow);
 
+            rd.dialog.addWindowListener(new WindowAdapter() {
+                @Override public void windowClosing(WindowEvent e) { deselectThisTask(); }
+            });
 
+            UniversalThemes.finalizeRoundedDialog(rd.dialog, frame);
+            SwingUtilities.invokeLater(() -> { field.requestFocusInWindow(); field.selectAll(); });
+            rd.dialog.setVisible(true);
         }
 
         private void DeleteEmptyTask() {
@@ -2156,102 +2123,106 @@ public class ArkIVv8 implements ActionListener{
 
         }
 
-        private void createSubtask() {
-            JPanel panel = new JPanel(new BorderLayout());
-            panel.setBackground(UniversalThemes.BG_MAIN);
+        private void createSubEntry() {
+            UniversalThemes.RoundedDialog rd = UniversalThemes.createRoundedDialogShell(frame, "Create Sub-Entry");
 
-            JTextArea field = new JTextArea(4, 40); // Start with 3 visible rows
-            field.setBackground(UniversalThemes.BG_PANEL);
+            JTextArea field = new JTextArea(4, 42);
+            field.setBackground(UniversalThemes.BG_COMPONENT);
             field.setForeground(UniversalThemes.TXT_PRIMARY);
             field.setCaretColor(UniversalThemes.ACCENT_COLOR);
-
-            JScrollPane scrollPane = new JScrollPane(field);
-            scrollPane.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
-            UniversalThemes.applyScrollbarTheme(scrollPane);
-
-            panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-            field.setFont(UniversalThemes.getCompositeFont(20));
+            field.setFont(UniversalThemes.getCompositeFont(18));
             field.setLineWrap(true);
             field.setWrapStyleWord(true);
             field.setMargin(new Insets(10, 10, 10, 10));
+            field.setBorder(null);
 
-            // Auto-grow implementation
+            JScrollPane scrollPane = new JScrollPane(field);
+            scrollPane.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
+            scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+            scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+            UniversalThemes.applyScrollbarTheme(scrollPane);
+            scrollPane.setAlignmentX(Component.LEFT_ALIGNMENT);
+            scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, 140));
+
+            rd.body.add(scrollPane);
+            rd.body.add(Box.createVerticalStrut(18));
+
+            // Auto-grow
             field.getDocument().addDocumentListener(new DocumentListener() {
-                public void insertUpdate(DocumentEvent e) {
-                    adjustTextAreaHeight();
-                }
-
-                public void removeUpdate(DocumentEvent e) {
-                    adjustTextAreaHeight();
-                }
-
-                public void changedUpdate(DocumentEvent e) {
-                    adjustTextAreaHeight();
-                }
-
-                private void adjustTextAreaHeight() {
+                public void insertUpdate(DocumentEvent e) { adjust(); }
+                public void removeUpdate(DocumentEvent e) { adjust(); }
+                public void changedUpdate(DocumentEvent e) { adjust(); }
+                private void adjust() {
                     int rows = field.getLineCount();
                     if (rows > field.getRows()) {
-                        field.setRows(Math.min(rows, 10)); // Max 10 visible rows
-                        panel.revalidate();
+                        field.setRows(Math.min(rows, 10));
+                        rd.dialog.pack();
+                        UniversalThemes.finalizeRoundedDialog(rd.dialog, frame);
                     }
                 }
             });
 
-            // Key bindings for Shift+Enter (new line) and Enter (submit)
+            Runnable submit = () -> {
+                String subtaskText = field.getText().trim();
+                if (!subtaskText.isEmpty()) {
+                    rd.dialog.dispose();
+                    TaskItem subtask = new TaskItem(taskCounter++, subtaskText, false, true, false, getId());
+                    idToTaskMap.put(subtask.getId(), subtask);
+                    allTasks.add(subtask);
+
+                    int insertIndex = -1;
+                    for (int i = 0; i < taskPanel.getComponentCount(); i++) {
+                        Component comp = taskPanel.getComponent(i);
+                        if (comp == TaskItem.this) {
+                            insertIndex = i;
+                        } else if (insertIndex != -1 && comp instanceof TaskItem) {
+                            TaskItem t = (TaskItem) comp;
+                            if (!t.isSubtask() || t.getParentId() != TaskItem.this.id) break;
+                            insertIndex = i;
+                        }
+                    }
+                    taskPanel.add(subtask, insertIndex + 1);
+                    taskPanel.revalidate();
+                    taskPanel.repaint();
+                    saveTasks();
+                }
+            };
+
             InputMap im = field.getInputMap(JComponent.WHEN_FOCUSED);
             ActionMap am = field.getActionMap();
 
-            // SHIFT + ENTER → New Line
             im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK), "insert-newline");
             am.put("insert-newline", new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
+                @Override public void actionPerformed(ActionEvent e) {
                     int caretPos = field.getCaretPosition();
                     String text = field.getText();
                     field.setText(text.substring(0, caretPos) + "\n" + text.substring(caretPos));
-                    field.setCaretPosition(caretPos + 1); // Move cursor to new line
+                    field.setCaretPosition(caretPos + 1);
                 }
             });
 
-            // ENTER → Create Subtask
             im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "submit-subtask");
             am.put("submit-subtask", new AbstractAction() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    String subtaskText = field.getText().trim();
-                    if (!subtaskText.isEmpty()) {
-                        ((JDialog) SwingUtilities.getWindowAncestor(panel)).dispose();
-                        TaskItem subtask = new TaskItem(taskCounter++, subtaskText, false, true, false, getId());
-                        idToTaskMap.put(subtask.getId(), subtask);
-                        allTasks.add(subtask);
-
-                        int insertIndex = -1;
-                        for (int i = 0; i < taskPanel.getComponentCount(); i++) {
-                            Component comp = taskPanel.getComponent(i);
-                            if (comp == TaskItem.this) {
-                                insertIndex = i;
-                            } else if (insertIndex != -1 && comp instanceof TaskItem) {
-                                TaskItem t = (TaskItem) comp;
-                                if (!t.isSubtask() || t.getParentId() != TaskItem.this.id) break;
-                                insertIndex = i;
-                            }
-                        }
-                        taskPanel.add(subtask, insertIndex + 1);
-                        taskPanel.revalidate();
-                        taskPanel.repaint();
-                        saveTasks();
-                    }
-                }
+                @Override public void actionPerformed(ActionEvent e) { submit.run(); }
             });
 
-            panel.add(scrollPane, BorderLayout.CENTER);
+            JButton addButton = UniversalThemes.createRoundedDialogButton("Create", UniversalThemes.ACCENT_COLOR,
+                    UniversalThemes.TXT_SELECTED, UniversalThemes.ACCENT_COLOR_DARK);
+            JButton cancelButton = UniversalThemes.createRoundedDialogButton("Cancel", UniversalThemes.BG_COMPONENT,
+                    UniversalThemes.TXT_PRIMARY, UniversalThemes.BORDER_COLOR1);
+            addButton.addActionListener(e -> submit.run());
+            cancelButton.addActionListener(e -> rd.dialog.dispose());
 
-            JDialog dialog = new JDialog(frame, "New Subtask", true);
-            dialog.getContentPane().add(panel);
-            dialog.pack();
-            dialog.setLocationRelativeTo(frame);
-            dialog.setVisible(true);
+            JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            buttonRow.setOpaque(false);
+            buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+            buttonRow.add(addButton);
+            buttonRow.add(cancelButton);
+            rd.body.add(buttonRow);
+
+            UniversalThemes.finalizeRoundedDialog(rd.dialog, frame);
+            SwingUtilities.invokeLater(field::requestFocusInWindow);
+            rd.dialog.setVisible(true);
         }
         // New method: Move this task up within its allowed range, allowing repeated moves while selected
         private void moveTaskUp() {
