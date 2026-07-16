@@ -23,6 +23,12 @@ public class RegisterContextMenu {
         void onDelete();
     }
 
+    public static void showForBranch(Component invoker, int x, int y, Runnable onNewRegister) {
+        JPopupMenu menu = createRoundedPopup();
+        menu.add(buildItem("New Register", true, e -> onNewRegister.run(), UniversalThemes.TXT_PRIMARY));
+        menu.show(invoker, x, y);
+    }
+
     public static void show(Component invoker, int x, int y,
                             boolean isFirst, boolean isLast, boolean isDefault, boolean canDelete,
                             Handler handler) {

@@ -2,9 +2,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
-import java.security.spec.KeySpec;
-import javax.crypto.*;
-import javax.crypto.spec.*;
 import java.util.*;
 import java.util.List;
 import javax.swing.event.DocumentEvent;
@@ -14,28 +11,41 @@ import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
 
+//Data Encryption
+import java.security.spec.KeySpec;
+import javax.crypto.*;
+import javax.crypto.spec.*;
+
+//Package - utilities
 import utilities.UniversalFactory;
 import utilities.UniversalThemes;
 import utilities.PathResolver;
-import java.awt.event.MouseEvent;
 
+//Mouse
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+
+//Package - Menu
 import Menu.FileMenu;
 import Menu.EditMenu;
 import Menu.SettingsMenu;
 
+//Data storage: json file handler
+import com.google.gson.*;
+
+//Package - Registers
 import Registers.RegisterManager;
 import Registers.RegisterItem;
 import Registers.RegisterContextMenu;
 
-import com.google.gson.*;
-
+//Register System: Navigation Tree
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.TreeCellRenderer;
 import javax.swing.plaf.basic.BasicTreeUI;
-import java.awt.event.MouseMotionAdapter;
+
 
 public class ArkIVv8 implements ActionListener{
     private JFrame frame;
@@ -55,13 +65,12 @@ public class ArkIVv8 implements ActionListener{
     private JMenuBar menuBar;
     private JMenu fileMenu, editMenu, settingsMenu, helpMenu;
 
+    //Data as .json structure
     private Map<Integer, TaskItem> idToTaskMap = new HashMap<>();
     private List<TaskItem> allTasks = new ArrayList<>();
 
+
     private TaskItem selectedTask = null;
-    private List<TaskItem> searchResults = new ArrayList<>();
-    private int searchIndex = -1;
-    private TaskItem highlightedSearchTask = null;
 
     private JDialog dialog;
 
@@ -88,13 +97,20 @@ public class ArkIVv8 implements ActionListener{
     private JTextField searchBar;
     private JButton searchPrevButton, searchNextButton;
     private String lastSearchedQuery = "";
+    private List<TaskItem> searchResults = new ArrayList<>();
+    private int searchIndex = -1;
+    private TaskItem highlightedSearchTask = null;
 
+    //Registers
     private int currentRegisterId;
     private JTree registerTree;
     private DefaultMutableTreeNode registerTreeRoot;
     private DefaultMutableTreeNode registersBranchNode;
     private DefaultMutableTreeNode unrecognizedBranchNode;
     private int hoveredTreeRow = -1;
+    private DefaultMutableTreeNode editingNode = null;
+    private JTextField registerRenameField = null;
+
 
     public ArkIVv8() {
 
@@ -215,7 +231,7 @@ public class ArkIVv8 implements ActionListener{
 
         // ── Outer split: sidebar (left) + inner split (right) ────────────
         JSplitPane outerSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, innerSplitPane);
-        outerSplitPane.setResizeWeight(0.225);
+        outerSplitPane.setResizeWeight(0.1);
         outerSplitPane.setDividerSize(0);
         outerSplitPane.setBorder(null);
         outerSplitPane.setBackground(UniversalThemes.BG_MAIN);
@@ -459,50 +475,50 @@ public class ArkIVv8 implements ActionListener{
         searchBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30)); // cap searchBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30)); // cap height
         searchBar.setPreferredSize(new Dimension(0, 30)); // match button height; width controlled by BorderLayout.CENTER
 
-        JButton searchButton = new JButton() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                int cx = getWidth() / 2 - 2, cy = getHeight() / 2 - 2;
-
-                g2.setColor(UniversalThemes.BG_COMPONENT);
-                g2.fillOval(cx - 6, cy - 6, 12, 12);
-
-                g2.setColor(UniversalThemes.TXT_PRIMARY);
-                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.drawOval(cx - 6, cy - 6, 12, 12);
-
-                g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.drawLine(cx + 4, cy + 4, cx + 9, cy + 9);
-
-                g2.dispose();
-            }
-        };
-//        searchButton.setFont(UniversalThemes.UI_FONT_EMOJI1);
-        searchButton.setPreferredSize(new Dimension(30, 30));
-        searchButton.setBackground(UniversalThemes.BG_SIDEBAR);
-        searchButton.setForeground(UniversalThemes.TXT_SELECTED);
-        searchButton.setBorder(new LineBorder(UniversalThemes.BORDER_COLOR2, 1));
-        searchButton.setFocusable(false);
-
-        searchButton.addMouseListener(new MouseAdapter() {
-        @Override
-        public void mousePressed(MouseEvent e) {
-            if (!searchButton.isEnabled()) return;
-            searchButton.setBackground(UniversalThemes.BORDER_COLOR1);
-        }
-
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            if (!searchButton.isEnabled()) return;
-            searchButton.setBackground(UniversalThemes.BG_SIDEBAR);
-        }
-        });
-
-        searchButton.setUI(new UniversalThemes.NoPressedButtonUI());
+//        JButton searchButton = new JButton() {
+//            @Override
+//            protected void paintComponent(Graphics g) {
+//                super.paintComponent(g);
+//                Graphics2D g2 = (Graphics2D) g.create();
+//                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+//
+//                int cx = getWidth() / 2 - 2, cy = getHeight() / 2 - 2;
+//
+//                g2.setColor(UniversalThemes.BG_COMPONENT);
+//                g2.fillOval(cx - 6, cy - 6, 12, 12);
+//
+//                g2.setColor(UniversalThemes.TXT_PRIMARY);
+//                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+//                g2.drawOval(cx - 6, cy - 6, 12, 12);
+//
+//                g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+//                g2.drawLine(cx + 4, cy + 4, cx + 9, cy + 9);
+//
+//                g2.dispose();
+//            }
+//        };
+////        searchButton.setFont(UniversalThemes.UI_FONT_EMOJI1);
+//        searchButton.setPreferredSize(new Dimension(30, 30));
+//        searchButton.setBackground(UniversalThemes.BG_SIDEBAR);
+//        searchButton.setForeground(UniversalThemes.TXT_SELECTED);
+//        searchButton.setBorder(new LineBorder(UniversalThemes.BORDER_COLOR2, 1));
+//        searchButton.setFocusable(false);
+//
+//        searchButton.addMouseListener(new MouseAdapter() {
+//        @Override
+//        public void mousePressed(MouseEvent e) {
+//            if (!searchButton.isEnabled()) return;
+//            searchButton.setBackground(UniversalThemes.BORDER_COLOR1);
+//        }
+//
+//        @Override
+//        public void mouseReleased(MouseEvent e) {
+//            if (!searchButton.isEnabled()) return;
+//            searchButton.setBackground(UniversalThemes.BG_SIDEBAR);
+//        }
+//        });
+//
+//        searchButton.setUI(new UniversalThemes.NoPressedButtonUI());
 
         searchPrevButton = new JButton() {
             @Override
@@ -580,7 +596,7 @@ public class ArkIVv8 implements ActionListener{
         searchButtonsPanel.setBackground(UniversalThemes.BG_SIDEBAR);
         searchButtonsPanel.add(searchPrevButton);
         searchButtonsPanel.add(searchNextButton);
-        searchButtonsPanel.add(searchButton);
+        //searchButtonsPanel.add(searchButton);
         searchRow.add(searchButtonsPanel, BorderLayout.EAST);
 
         JPanel searchWrapper = new JPanel(new BorderLayout());
@@ -589,13 +605,13 @@ public class ArkIVv8 implements ActionListener{
         searchWrapper.add(searchRow, BorderLayout.CENTER);
         searchWrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
 
-        searchButton.addActionListener(e -> {
-            performSearch(searchBar.getText());
-            if (!searchResults.isEmpty()) {
-                jumpToResult(0);
-            }
-            updateSearchButtonStates();
-        });
+//        searchButton.addActionListener(e -> {
+//            performSearch(searchBar.getText());
+//            if (!searchResults.isEmpty()) {
+//                jumpToResult(0);
+//            }
+//            updateSearchButtonStates();
+//        });
 
         searchBar.addActionListener(e -> {
             // If we already have results for this exact search, Enter advances to next match
@@ -694,6 +710,10 @@ public class ArkIVv8 implements ActionListener{
                 setOpenIcon(null);
                 setClosedIcon(null);
                 setBorder(BorderFactory.createEmptyBorder(0, isBranch ? 4 : 10, 0, 0));
+
+                if (node == editingNode) {
+                    setText(""); // hide label text while the overlay field is active on this row
+                }
 
                 return this;
             }
@@ -985,97 +1005,181 @@ public class ArkIVv8 implements ActionListener{
         refreshRegisterList();
     }
 
-    private void showBranchContextMenu(Component invoker, int x, int y) {
-        JPopupMenu menu = new JPopupMenu();
-        menu.setBackground(UniversalThemes.BG_COMPONENT);
-        menu.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR2, 1));
+    private DefaultMutableTreeNode findLeafNodeForEntry(Object entry) {
+        for (int i = 0; i < registersBranchNode.getChildCount(); i++) {
+            DefaultMutableTreeNode child = (DefaultMutableTreeNode) registersBranchNode.getChildAt(i);
+            if (child.getUserObject() == entry) return child;
+        }
+        return null;
+    }
 
-        JMenuItem newRegisterItem = new JMenuItem("New Register");
-        newRegisterItem.setFont(UniversalThemes.UI_FONT_SMALL2);
-        newRegisterItem.setForeground(UniversalThemes.TXT_PRIMARY);
-        newRegisterItem.setBackground(UniversalThemes.BG_COMPONENT);
-        newRegisterItem.setBorder(BorderFactory.createEmptyBorder(7, 16, 7, 20));
-        newRegisterItem.setOpaque(true);
-        newRegisterItem.addActionListener(e -> handleCreateRegister());
 
-        newRegisterItem.setUI(new javax.swing.plaf.basic.BasicMenuItemUI() {
+
+    private void startInlineRename(RegisterManager.RegisterEntry entry) {
+        DefaultMutableTreeNode node = findLeafNodeForEntry(entry);
+        if (node == null) return;
+
+        TreePath path = new TreePath(node.getPath());
+        int row = registerTree.getRowForPath(path);
+        Rectangle bounds = registerTree.getRowBounds(row);
+        if (bounds == null) return;
+
+        editingNode = node;
+        registerTree.repaint();
+
+        registerRenameField = new JTextField(entry.name);
+        registerRenameField.setFont(UniversalThemes.UI_FONT_SMALL3);
+        registerRenameField.setForeground(UniversalThemes.TXT_PRIMARY);
+        registerRenameField.setBackground(UniversalThemes.BG_COMPONENT);
+        registerRenameField.setCaretColor(UniversalThemes.ACCENT_COLOR);
+        registerRenameField.setBorder(BorderFactory.createLineBorder(UniversalThemes.ACCENT_COLOR, 1));
+
+        int textX = bounds.x + 10; // matches the leaf's left inset from the cell renderer
+        int rightMargin = 12;
+        int availableWidth = registerTree.getWidth() - textX - rightMargin;
+
+        registerRenameField.setBounds(textX, bounds.y + 2, Math.max(availableWidth, 80), bounds.height - 4);
+
+        registerTree.add(registerRenameField);
+        registerTree.setComponentZOrder(registerRenameField, 0);
+        registerTree.revalidate();
+        registerTree.repaint();
+
+        registerRenameField.requestFocusInWindow();
+        registerRenameField.selectAll();
+
+        boolean[] handled = {false};
+
+        registerRenameField.addActionListener(e -> {
+            if (handled[0]) return;
+            handled[0] = true;
+            commitInlineRename(entry, registerRenameField.getText());
+        });
+
+        registerRenameField.addFocusListener(new FocusAdapter() {
             @Override
-            protected void paintBackground(Graphics g, JMenuItem menuItem, Color bgColor) {
-                boolean hovered = menuItem.getModel().isArmed();
-                g.setColor(hovered ? UniversalThemes.BORDER_COLOR1 : UniversalThemes.BG_COMPONENT);
-                g.fillRect(0, 0, menuItem.getWidth(), menuItem.getHeight());
-            }
-
-            @Override
-            protected void paintText(Graphics g, JMenuItem menuItem, Rectangle textRect, String text) {
-                boolean hovered = menuItem.getModel().isArmed();
-                g.setColor(hovered ? UniversalThemes.ACCENT_COLOR : UniversalThemes.TXT_PRIMARY);
-                super.paintText(g, menuItem, textRect, text);
+            public void focusLost(FocusEvent e) {
+                if (handled[0]) return;
+                handled[0] = true;
+                commitInlineRename(entry, registerRenameField.getText());
             }
         });
 
-        menu.add(newRegisterItem);
-        menu.show(invoker, x, y);
+        InputMap im = registerRenameField.getInputMap(JComponent.WHEN_FOCUSED);
+        ActionMap am = registerRenameField.getActionMap();
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "cancel-rename");
+        am.put("cancel-rename", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (handled[0]) return;
+                handled[0] = true;
+                cancelInlineRename();
+            }
+        });
+    }
+
+    private void commitInlineRename(RegisterManager.RegisterEntry entry, String newNameRaw) {
+        cleanupInlineRenameField();
+        String newName = newNameRaw.trim();
+        if (!newName.isEmpty() && !newName.equals(entry.name)) {
+            registerManager.renameRegister(entry.id, newName);
+        }
+        refreshRegisterList();
+    }
+
+    private void cancelInlineRename() {
+        cleanupInlineRenameField();
+        registerTree.repaint();
+    }
+
+    private void cleanupInlineRenameField() {
+        if (registerRenameField != null) {
+            registerTree.remove(registerRenameField);
+            registerRenameField = null;
+        }
+        editingNode = null;
+        registerTree.revalidate();
+        registerTree.repaint();
+    }
+
+    private void showBranchContextMenu(Component invoker, int x, int y) {
+        RegisterContextMenu.showForBranch(invoker, x, y, this::handleCreateRegister);
     }
 
     private String promptForRegisterName() {
+        UniversalThemes.RoundedDialog rd = UniversalThemes.createRoundedDialogShell(frame, "New Register");
+
+        JLabel label = new JLabel("Register name:");
+        label.setForeground(UniversalThemes.TXT_SECONDARY);
+        label.setFont(UniversalThemes.UI_FONT_SMALL3);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JTextField nameField = new JTextField(18);
-        nameField.setBackground(UniversalThemes.BG_PANEL);
+        nameField.setBackground(UniversalThemes.BG_COMPONENT);
         nameField.setForeground(UniversalThemes.TXT_PRIMARY);
         nameField.setCaretColor(UniversalThemes.ACCENT_COLOR);
         nameField.setFont(UniversalThemes.UI_FONT_BIG);
-        nameField.setBorder(BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1));
+        nameField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UniversalThemes.BORDER_COLOR1, 1),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)
+        ));
+        nameField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        nameField.setMaximumSize(new Dimension(Integer.MAX_VALUE, nameField.getPreferredSize().height));
 
-        JLabel label = new JLabel("Register name :");
-        label.setForeground(UniversalThemes.TXT_PRIMARY);
-        label.setFont(UniversalThemes.UI_FONT_BIG);
-
-        JPanel panel = new JPanel(new BorderLayout(0, 8));
-        panel.setBackground(UniversalThemes.BG_MAIN);
-        panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-        panel.add(label, BorderLayout.NORTH);
-        panel.add(nameField, BorderLayout.CENTER);
+        rd.body.add(label);
+        rd.body.add(Box.createVerticalStrut(8));
+        rd.body.add(nameField);
+        rd.body.add(Box.createVerticalStrut(18));
 
         final String[] result = { null };
-        JDialog dialog = new JDialog(frame, "New Register", true);
+
+        Runnable submit = () -> {
+            result[0] = nameField.getText().trim();
+            rd.dialog.dispose();
+        };
 
         InputMap im = nameField.getInputMap(JComponent.WHEN_FOCUSED);
         ActionMap am = nameField.getActionMap();
 
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "confirm");
         am.put("confirm", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                result[0] = nameField.getText().trim();
-                dialog.dispose();
-            }
+            @Override public void actionPerformed(ActionEvent e) { submit.run(); }
         });
 
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "cancel");
         am.put("cancel", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
+            @Override public void actionPerformed(ActionEvent e) {
                 result[0] = null;
-                dialog.dispose();
+                rd.dialog.dispose();
             }
         });
 
-        dialog.getContentPane().add(panel);
-        dialog.pack();
-        dialog.setLocationRelativeTo(frame);
-        dialog.setResizable(false);
-
-        dialog.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                result[0] = null;
-            }
+        JButton createButton = UniversalThemes.createRoundedDialogButton("Create", UniversalThemes.ACCENT_COLOR,
+                UniversalThemes.TXT_SELECTED, UniversalThemes.ACCENT_COLOR_DARK);
+        JButton cancelButton = UniversalThemes.createRoundedDialogButton("Cancel", UniversalThemes.BG_COMPONENT,
+                UniversalThemes.TXT_PRIMARY, UniversalThemes.BORDER_COLOR1);
+        createButton.addActionListener(e -> submit.run());
+        cancelButton.addActionListener(e -> {
+            result[0] = null;
+            rd.dialog.dispose();
         });
 
+        JPanel buttonRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonRow.setOpaque(false);
+        buttonRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        buttonRow.add(createButton);
+        buttonRow.add(cancelButton);
+        rd.body.add(buttonRow);
+
+        rd.dialog.addWindowListener(new WindowAdapter() {
+            @Override public void windowClosing(WindowEvent e) { result[0] = null; }
+        });
+
+        UniversalThemes.finalizeRoundedDialog(rd.dialog, frame);
         SwingUtilities.invokeLater(nameField::requestFocusInWindow);
-        dialog.setVisible(true); // blocks until dispose()
+        rd.dialog.setVisible(true);
 
-        return result[0]; // null string here means "blank" -> RegisterManager applies default name
+        return result[0];
     }
 
     private void switchToRegister(RegisterManager.RegisterEntry entry) {
@@ -1119,13 +1223,7 @@ public class ArkIVv8 implements ActionListener{
                 new RegisterContextMenu.Handler() {
                     @Override
                     public void onRename() {
-                        SwingUtilities.invokeLater(() -> {
-                            String newName = promptForRenameRegister(entry.name);
-                            if (newName != null) {
-                                registerManager.renameRegister(entry.id, newName);
-                                refreshRegisterList();
-                            }
-                        });
+                        SwingUtilities.invokeLater(() -> startInlineRename(entry));
                     }
 
                     @Override
@@ -1217,63 +1315,6 @@ public class ArkIVv8 implements ActionListener{
         }
     }
 
-    private Integer promptDeleteRegisterChoice(String registerName) {
-        final Integer[] result = { null };
-
-        JDialog dialog = new JDialog(frame, "Delete Register", true);
-        dialog.setResizable(false);
-        dialog.setLayout(new BorderLayout());
-
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(UniversalThemes.BG_MAIN);
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
-
-        JLabel messageLabel = new JLabel("<html>Delete \"" + registerName + "\"?<br>Choose how you'd like to proceed.</html>");
-        messageLabel.setFont(UniversalThemes.UI_FONT_BIG);
-        messageLabel.setForeground(UniversalThemes.TXT_PRIMARY);
-        mainPanel.add(messageLabel, BorderLayout.CENTER);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        buttonPanel.setBackground(UniversalThemes.BG_MAIN);
-
-        JButton deleteFileButton = new JButton(" Delete File ");
-        JButton removeOnlyButton = new JButton(" Remove From List Only ");
-        JButton cancelButton = new JButton(" Cancel ");
-
-        for (JButton b : new JButton[]{deleteFileButton, removeOnlyButton, cancelButton}) {
-            b.setFont(UniversalThemes.UI_FONT_SMALL3);
-            b.setUI(new UniversalThemes.NoPressedButtonUI());
-            b.setFocusable(false);
-        }
-
-        deleteFileButton.setBackground(UniversalThemes.BG_DELETE_BTN);
-        deleteFileButton.setForeground(Color.BLACK);
-        deleteFileButton.setBorder(new LineBorder(UniversalThemes.BG_DELETE_BTN.darker(), 2));
-
-        removeOnlyButton.setBackground(UniversalThemes.BG_COMPONENT);
-        removeOnlyButton.setForeground(UniversalThemes.TXT_PRIMARY);
-        removeOnlyButton.setBorder(new LineBorder(UniversalThemes.BORDER_COLOR2, 2));
-
-        cancelButton.setBackground(UniversalThemes.BG_COMPONENT);
-        cancelButton.setForeground(UniversalThemes.TXT_PRIMARY);
-        cancelButton.setBorder(new LineBorder(UniversalThemes.BORDER_COLOR2, 2));
-
-        deleteFileButton.addActionListener(e -> { result[0] = 1; dialog.dispose(); });
-        removeOnlyButton.addActionListener(e -> { result[0] = 0; dialog.dispose(); });
-        cancelButton.addActionListener(e -> { result[0] = null; dialog.dispose(); });
-
-        buttonPanel.add(deleteFileButton);
-        buttonPanel.add(removeOnlyButton);
-        buttonPanel.add(cancelButton);
-
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.add(mainPanel);
-        dialog.pack();
-        dialog.setLocationRelativeTo(frame);
-        dialog.setVisible(true);
-
-        return result[0];
-    }
 
     private String promptForRenameRegister(String currentName) {
         JTextField nameField = new JTextField(currentName, 18);
@@ -1375,7 +1416,7 @@ public class ArkIVv8 implements ActionListener{
                         ? ((CompoundBorder) task.getBorder()).getInsideBorder()
                         : BorderFactory.createLineBorder(UniversalThemes.BG_PANEL, 2);
                 task.setBorder(BorderFactory.createCompoundBorder(newOuter, currentInner));
-                hideSubtasks(task);
+                hideSubEntries(task);
             }
         }
         saveTasks();
@@ -1390,7 +1431,7 @@ public class ArkIVv8 implements ActionListener{
                         ? ((CompoundBorder) task.getBorder()).getInsideBorder()
                         : BorderFactory.createLineBorder(UniversalThemes.BG_PANEL, 2);
                 task.setBorder(BorderFactory.createCompoundBorder(newOuter, currentInner));
-                showSubtasks(task);
+                showSubEntries(task);
             }
         }
         saveTasks();
@@ -1404,9 +1445,29 @@ public class ArkIVv8 implements ActionListener{
                     ? ((CompoundBorder) task.getBorder()).getInsideBorder()
                     : BorderFactory.createLineBorder(UniversalThemes.BG_PANEL, 2);
             task.setBorder(BorderFactory.createCompoundBorder(newOuter, currentInner));
-            showSubtasks(task);
+            showSubEntries(task);
             saveTasks();
         }
+    }
+
+    private void scrollToTaskWithPadding(TaskItem task) {
+        Rectangle bounds = task.getBounds();
+        int padding = 100; // extra space to reveal below the entry
+
+        Rectangle padded = new Rectangle(
+                bounds.x,
+                bounds.y,
+                bounds.width,
+                bounds.height + padding
+        );
+
+        // Clamp so we never request beyond the panel's actual content height
+        int maxY = taskPanel.getHeight();
+        if (padded.y + padded.height > maxY) {
+            padded.height = Math.max(bounds.height, maxY - padded.y);
+        }
+
+        taskPanel.scrollRectToVisible(padded);
     }
 
     private void addTaskFromInput(String text) {
@@ -1424,6 +1485,7 @@ public class ArkIVv8 implements ActionListener{
             taskPanel.add(task);
             taskPanel.revalidate();
             saveTasks();
+            SwingUtilities.invokeLater(() -> scrollToTaskWithPadding(task));
         }
     }
 
@@ -1466,7 +1528,7 @@ public class ArkIVv8 implements ActionListener{
 
                 for (TaskItem task : mainTasks) {
                     if (!task.isCollapsed()) {
-                        showSubtasks(task);
+                        showSubEntries(task);
                     }
                 }
 
@@ -1501,9 +1563,9 @@ public class ArkIVv8 implements ActionListener{
         }
     }
 
-
-
-    private void hideSubtasks(TaskItem parent) {
+///=====================================================================================================================
+///==Sub Entries Methods
+    private void hideSubEntries(TaskItem parent) {
         for (TaskItem task : allTasks) {
             if (task.isSubtask() && task.getParentId() == parent.getId()) {
                 taskPanel.remove(task);
@@ -1513,7 +1575,7 @@ public class ArkIVv8 implements ActionListener{
         taskPanel.repaint();
     }
 
-    private void showSubtasks(TaskItem parent) {
+    private void showSubEntries(TaskItem parent) {
         int parentIndex = taskPanel.getComponentZOrder(parent);
 
         // Collect all subtasks of this parent IN THE ORDER THEY APPEAR IN allTasks (preserves moved/saved order)
@@ -1533,6 +1595,9 @@ public class ArkIVv8 implements ActionListener{
         taskPanel.revalidate();
         taskPanel.repaint();
     }
+
+///==Sub Entries Methods
+///=====================================================================================================================
 
 
     private String encrypt(String plainText) throws Exception {
@@ -1669,7 +1734,7 @@ public class ArkIVv8 implements ActionListener{
 //            editButton.setBorder(new LineBorder(UniversalThemes.ACCENT_COLOR_DARK, 2));
 //            editButton.setPreferredSize(new Dimension(40, 29));
 //            UniversalThemes.ClickEffect(editButton);
-//            editButton.addActionListener(e -> editTask());
+//            editButton.addActionListener(e -> editEntry());
 
 //            JButton deleteButton = new JButton(" \uD83D\uDDD1\uFE0F ");
 //            deleteButton.setText("<html><div style='margin-top:3px;'>🗑️</div></html>");
@@ -1729,8 +1794,8 @@ public class ArkIVv8 implements ActionListener{
                                 currentInner = innerBorder;
                             }
                             setBorder(BorderFactory.createCompoundBorder(newOuter, currentInner));
-                            if (TaskItem.this.isCollapsed) hideSubtasks(TaskItem.this);
-                            else showSubtasks(TaskItem.this);
+                            if (TaskItem.this.isCollapsed) hideSubEntries(TaskItem.this);
+                            else showSubEntries(TaskItem.this);
                             saveTasks();
                         } else {
                             //Do nothing
@@ -1762,7 +1827,7 @@ public class ArkIVv8 implements ActionListener{
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     if(isSelected){
-                        editTask();
+                        editEntry();
                     }
                 }
             });
@@ -1917,23 +1982,10 @@ public class ArkIVv8 implements ActionListener{
             setBorder(BorderFactory.createCompoundBorder(outerBorder, innerBorder));
         }
 
-        public void applySearchHighlight() {
-            isSearchHighlighted = true;
-            Border currentBorder = getBorder();
-            Border outerBorder = (currentBorder instanceof CompoundBorder)
-                    ? ((CompoundBorder) currentBorder).getOutsideBorder()
-                    : BorderFactory.createEmptyBorder();
-            Border highlightInner = BorderFactory.createLineBorder(UniversalThemes.SEARCH_HIGHLIGHT_COLOR, 2);
-            setBorder(BorderFactory.createCompoundBorder(outerBorder, highlightInner));
-        }
-
-        public void clearSearchHighlight() {
-            isSearchHighlighted = false;
-            resetInnerBorder();
-        }
 
 
-        private void editTask() {
+
+        private void editEntry() {
             UniversalThemes.RoundedDialog rd = UniversalThemes.createRoundedDialogShell(frame, "Edit");
 
             JTextArea field = new JTextArea(getRawText(), 4, 42);
@@ -2057,71 +2109,9 @@ public class ArkIVv8 implements ActionListener{
             rd.dialog.setVisible(true);
         }
 
-        private void DeleteEmptyTask() {
-            List<Component> toRemove = new ArrayList<>();
-            toRemove.add(this); // Always remove the clicked task
-            boolean hasSubtasks = false;
 
-            if (!isSubtask) {
-                // It's a main task, so find and mark its subtasks
-                for (TaskItem task : allTasks) {
-                    if (task.isSubtask() && task.getParentId() == this.id) {
-                        toRemove.add(task);
-                        hasSubtasks = true;
-                    }
-                }
-            }
 
-                for (Component c : toRemove) {
-                    taskPanel.remove(c);
-                    allTasks.remove(c);
-                }
-                saveTasks();
-                taskPanel.revalidate();
-                taskPanel.repaint();
 
-        }
-
-        private void confirmDeleteTask() {
-            List<Component> toRemove = new ArrayList<>();
-            toRemove.add(this); // Always remove the clicked task
-            boolean hasSubtasks = false;
-
-            if (!isSubtask) {
-                // It's a main task, so find and mark its subtasks
-                for (TaskItem task : allTasks) {
-                    if (task.isSubtask() && task.getParentId() == this.id) {
-                        toRemove.add(task);
-                        hasSubtasks = true;
-                    }
-                }
-            }
-
-            String entryPreview = getRawText().length() > 40
-                    ? getRawText().substring(0, 40) + "..."
-                    : getRawText();
-            String subMessage = hasSubtasks
-                    ? "This will also delete its sub-Entries. "
-                    : "";
-
-            boolean confirmed = UniversalThemes.showDeleteConfirmPopup(
-                    frame,
-                    "Delete Entry",
-                    entryPreview,
-                    subMessage
-            );
-
-            if (confirmed) {
-                for (Component c : toRemove) {
-                    taskPanel.remove(c);
-                    allTasks.remove(c);
-                }
-                saveTasks();
-                taskPanel.revalidate();
-                taskPanel.repaint();
-            }
-
-        }
 
         private void createSubEntry() {
             UniversalThemes.RoundedDialog rd = UniversalThemes.createRoundedDialogShell(frame, "Create Sub-Entry");
@@ -2185,6 +2175,7 @@ public class ArkIVv8 implements ActionListener{
                     taskPanel.revalidate();
                     taskPanel.repaint();
                     saveTasks();
+                    SwingUtilities.invokeLater(() -> scrollToTaskWithPadding(subtask));
                 }
             };
 
@@ -2252,7 +2243,7 @@ public class ArkIVv8 implements ActionListener{
                     currentInner = isSubtask ? BorderFactory.createLineBorder(subtaskBgColor, 2) : BorderFactory.createLineBorder(Color.WHITE, 2);
                 }
                 setBorder(BorderFactory.createCompoundBorder(newOuter, currentInner));
-                hideSubtasks(this);
+                hideSubEntries(this);
             }
 
             // Find the index of the task above to swap with, respecting main/subtask boundaries
@@ -2340,7 +2331,7 @@ public class ArkIVv8 implements ActionListener{
                     currentInner = isSubtask ? BorderFactory.createLineBorder(subtaskBgColor, 2) : BorderFactory.createLineBorder(Color.WHITE, 2);
                 }
                 setBorder(BorderFactory.createCompoundBorder(newOuter, currentInner));
-                hideSubtasks(this);
+                hideSubEntries(this);
             }
 
             // Find the index of the task below to swap with, respecting main/subtask boundaries
@@ -2399,6 +2390,125 @@ public class ArkIVv8 implements ActionListener{
                 }
             });
         }
+
+    ///=================================================================================================================
+    ///==Deletion Methods
+    private void DeleteEmptyTask() {
+        List<Component> toRemove = new ArrayList<>();
+        toRemove.add(this); // Always remove the clicked task
+        boolean hasSubtasks = false;
+
+        if (!isSubtask) {
+            // It's a main task, so find and mark its subtasks
+            for (TaskItem task : allTasks) {
+                if (task.isSubtask() && task.getParentId() == this.id) {
+                    toRemove.add(task);
+                    hasSubtasks = true;
+                }
+            }
+        }
+
+        for (Component c : toRemove) {
+            taskPanel.remove(c);
+            allTasks.remove(c);
+        }
+        saveTasks();
+        taskPanel.revalidate();
+        taskPanel.repaint();
+
+    }
+
+        private void confirmDeleteTask() {
+            List<Component> toRemove = new ArrayList<>();
+            toRemove.add(this); // Always remove the clicked task
+            boolean hasSubtasks = false;
+
+            if (!isSubtask) {
+                // It's a main task, so find and mark its subtasks
+                for (TaskItem task : allTasks) {
+                    if (task.isSubtask() && task.getParentId() == this.id) {
+                        toRemove.add(task);
+                        hasSubtasks = true;
+                    }
+                }
+            }
+
+            String entryPreview = getRawText().length() > 40
+                    ? getRawText().substring(0, 40) + "..."
+                    : getRawText();
+            String subMessage = hasSubtasks
+                    ? "This will also delete its sub-Entries. "
+                    : "";
+
+            boolean confirmed = UniversalThemes.showDeleteConfirmPopup(
+                    frame,
+                    "Delete Entry",
+                    entryPreview,
+                    subMessage
+            );
+
+            if (confirmed) {
+                for (Component c : toRemove) {
+                    taskPanel.remove(c);
+                    allTasks.remove(c);
+                }
+                saveTasks();
+                taskPanel.revalidate();
+                taskPanel.repaint();
+            }
+
+        }
+    ///==Deletion Methods
+    ///=================================================================================================================
+        
+    ///=================================================================================================================
+    ///==Search Methods
+
+    public void applySearchHighlight() {
+        isSearchHighlighted = true;
+        Border currentBorder = getBorder();
+        Border outerBorder = (currentBorder instanceof CompoundBorder)
+                ? ((CompoundBorder) currentBorder).getOutsideBorder()
+                : BorderFactory.createEmptyBorder();
+        Border highlightInner = BorderFactory.createLineBorder(UniversalThemes.SEARCH_HIGHLIGHT_COLOR, 2);
+        setBorder(BorderFactory.createCompoundBorder(outerBorder, highlightInner));
+    }
+
+    public void clearSearchHighlight() {
+        isSearchHighlighted = false;
+        resetInnerBorder();
+    }
+
+    ///==Search Methods
+    ///=================================================================================================================    
+
+    ///=================================================================================================================
+    ///==Register Methods
+
+    
+
+
+
+    ///==Register Methods
+    ///=================================================================================================================
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     }
 }
