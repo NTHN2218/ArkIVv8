@@ -11,6 +11,8 @@ import javax.swing.border.Border;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
 
+import java.nio.charset.StandardCharsets;
+
 //Data Encryption
 import java.security.spec.KeySpec;
 import javax.crypto.*;
@@ -139,7 +141,7 @@ public class ArkIVv8 implements ActionListener{
 
         // ── Input area + scroll ──────────────────────────────────────────
         inputArea = new JTextArea(3, 30);
-        inputArea.setFont(UniversalThemes.getCompositeFont(20));
+        inputArea.setFont(UniversalThemes.getCompositeFont(17));
         inputArea.setBackground(UniversalThemes.BG_COMPONENT);
         inputArea.setForeground(UniversalThemes.TXT_PRIMARY);
         inputArea.setCaretColor(UniversalThemes.ACCENT_COLOR);
@@ -231,7 +233,7 @@ public class ArkIVv8 implements ActionListener{
 
         // ── Outer split: sidebar (left) + inner split (right) ────────────
         JSplitPane outerSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebarPanel, innerSplitPane);
-        outerSplitPane.setResizeWeight(0.1);
+        outerSplitPane.setResizeWeight(0.18);
         outerSplitPane.setDividerSize(0);
         outerSplitPane.setBorder(null);
         outerSplitPane.setBackground(UniversalThemes.BG_MAIN);
@@ -1492,7 +1494,8 @@ public class ArkIVv8 implements ActionListener{
     private void loadTasks() {
         File file = new File(FILE_NAME);
         if (file.exists()) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -1555,7 +1558,8 @@ public class ArkIVv8 implements ActionListener{
                 obj.addProperty("isCollapsed", t.isCollapsed());
                 array.add(obj);
             }
-            try (PrintWriter writer = new PrintWriter(new FileWriter(FILE_NAME))) {
+            try (PrintWriter writer = new PrintWriter(
+                    new OutputStreamWriter(new FileOutputStream(FILE_NAME), StandardCharsets.UTF_8))) {
                 writer.print(new GsonBuilder().setPrettyPrinting().create().toJson(array));
             }
         } catch (Exception e) {
@@ -1627,6 +1631,9 @@ public class ArkIVv8 implements ActionListener{
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ArkIVv8::new);
+        System.out.println("file.encoding = " + System.getProperty("file.encoding"));
+//        System.out.println("sun.jnu.encoding = " + System.getProperty("sun.jnu.encoding"));
+//        System.out.println("native.encoding = " + System.getProperty("native.encoding"));
     }
 
 
@@ -1702,7 +1709,7 @@ public class ArkIVv8 implements ActionListener{
                     return d;
                 }
             };
-            textArea.setFont(UniversalThemes.getCompositeFont(20));
+            textArea.setFont(UniversalThemes.getCompositeFont(17));
             textArea.setForeground(UniversalThemes.TXT_PRIMARY);
             textArea.setCaretColor(UniversalThemes.ACCENT_COLOR);
             textArea.setOpaque(false);
@@ -1992,7 +1999,7 @@ public class ArkIVv8 implements ActionListener{
             field.setBackground(UniversalThemes.BG_COMPONENT);
             field.setForeground(UniversalThemes.TXT_PRIMARY);
             field.setCaretColor(UniversalThemes.ACCENT_COLOR);
-            field.setFont(UniversalThemes.getCompositeFont(18));
+            field.setFont(UniversalThemes.getCompositeFont(17));
             field.setLineWrap(true);
             field.setWrapStyleWord(true);
             field.setMargin(new Insets(10, 10, 10, 10));
@@ -2120,7 +2127,7 @@ public class ArkIVv8 implements ActionListener{
             field.setBackground(UniversalThemes.BG_COMPONENT);
             field.setForeground(UniversalThemes.TXT_PRIMARY);
             field.setCaretColor(UniversalThemes.ACCENT_COLOR);
-            field.setFont(UniversalThemes.getCompositeFont(18));
+            field.setFont(UniversalThemes.getCompositeFont(17));
             field.setLineWrap(true);
             field.setWrapStyleWord(true);
             field.setMargin(new Insets(10, 10, 10, 10));

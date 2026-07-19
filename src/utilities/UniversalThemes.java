@@ -49,22 +49,25 @@ public class UniversalThemes {
     public static final Color TXT_SELECTED   = Color.BLACK;
 
     // ===== Fonts =====
-    public static final Font UI_FONT_SMALL1      = new Font("Segoe UI", Font.PLAIN, 12);
-    public static final Font UI_FONT_SMALL2     = new Font("Segoe UI", Font.PLAIN, 14);
-    public static final Font UI_FONT_SMALL3     = new Font("Segoe UI", Font.PLAIN, 16);
+    private static final Font BASE_REGULAR = PathResolver.getRegularBaseFont();
+    private static final Font BASE_BOLD    = PathResolver.getBoldBaseFont();
+    private static final Font BASE_ITALIC  = PathResolver.getItalicBaseFont();
 
+    public static final Font UI_FONT_SMALL1  = BASE_REGULAR.deriveFont(Font.PLAIN, 12f);
+    public static final Font UI_FONT_SMALL2  = BASE_REGULAR.deriveFont(Font.PLAIN, 14f);
+    public static final Font UI_FONT_SMALL3  = BASE_REGULAR.deriveFont(Font.PLAIN, 16f);
 
-    public static final Font UI_FONT_BIG        = new Font("Segoe UI", Font.PLAIN, 18);
-    public static final Font UI_FONT_BIG2       = new Font("Segoe UI", Font.PLAIN, 20);
-    public static final Font UI_FONT_BIG4      = new Font("Segoe UI", Font.PLAIN, 21);
-    public static final Font UI_FONT_BIG3       = new Font("Segoe UI", Font.PLAIN, 25);
+    public static final Font UI_FONT_BIG      = BASE_REGULAR.deriveFont(Font.PLAIN, 18f);
+    public static final Font UI_FONT_BIG2     = BASE_REGULAR.deriveFont(Font.PLAIN, 20f);
+    public static final Font UI_FONT_BIG4     = BASE_REGULAR.deriveFont(Font.PLAIN, 21f);
+    public static final Font UI_FONT_BIG3     = BASE_REGULAR.deriveFont(Font.PLAIN, 25f);
 
-    public static final Font UI_FONT_TITLE1     = new Font("Segoe UI", Font.BOLD, 28);
-    public static final Font UI_FONT_TITLE2     = new Font("Segoe UI", Font.PLAIN, 42);
+    public static final Font UI_FONT_TITLE1  = BASE_BOLD.deriveFont(Font.BOLD, 28f);
+    public static final Font UI_FONT_TITLE2  = BASE_REGULAR.deriveFont(Font.PLAIN, 42f);
 
-    public static final Font UI_FONT_BOLD1       = new Font("Segoe UI", Font.BOLD, 16);
-    public static final Font UI_FONT_BOLD2      = new Font("Segoe UI", Font.BOLD, 18);
-    public static final Font UI_FONT_BOLD3      = new Font("Segoe UI", Font.BOLD, 22);
+    public static final Font UI_FONT_BOLD1   = BASE_BOLD.deriveFont(Font.BOLD, 16f);
+    public static final Font UI_FONT_BOLD2   = BASE_BOLD.deriveFont(Font.BOLD, 18f);
+    public static final Font UI_FONT_BOLD3   = BASE_BOLD.deriveFont(Font.BOLD, 22f);
 
     public static final Font UI_FONT_EMOJI       = new Font("Segoe UI Emoji", Font.PLAIN, 18);
     public static final Font UI_FONT_EMOJI1       = new Font("Segoe UI Emoji", Font.PLAIN, 16);
@@ -73,17 +76,10 @@ public class UniversalThemes {
 
 
     public static Font getCompositeFont(int size) {
-        // Segoe UI Symbol covers ❌❎✅✔ AND renders normal Latin text fine
-        // It is pre-installed on all Windows machines with Java
-        // On other OS, Dialog falls back gracefully
-        String os = System.getProperty("os.name").toLowerCase();
-        if (os.contains("win")) {
-            return new Font("Segoe UI Symbol", Font.PLAIN, size);
-        } else if (os.contains("mac")) {
-            return new Font("Apple Color Emoji", Font.PLAIN, size);
-        } else {
-            return new Font("Noto Color Emoji", Font.PLAIN, size);
-        }
+        // JetBrains Mono for regular text; Java's own per-glyph font
+        // substitution automatically falls back to an OS emoji font
+        // for any character JetBrains Mono can't render (e.g. emoji).
+        return PathResolver.getRegularBaseFont().deriveFont((float) size);
     }
 
     public static final int DIALOG_CORNER_RADIUS = 16;

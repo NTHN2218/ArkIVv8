@@ -6,6 +6,8 @@ import utilities.PathResolver;
 import java.io.*;
 import java.util.*;
 
+import java.nio.charset.StandardCharsets;
+
 public class RegisterManager {
 
     private static final String HEADER_FILE = "header.json";
@@ -39,7 +41,8 @@ public class RegisterManager {
     // ── Header load / init ──────────────────────────────────────────
     private void loadOrInitHeader() {
         if (headerFile.exists()) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(headerFile))) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(new FileInputStream(headerFile), StandardCharsets.UTF_8))) {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) sb.append(line).append("\n");
@@ -87,7 +90,8 @@ public class RegisterManager {
     private void writeEmptyRegisterFile(String filename) {
         File f = new File(assetsPath, filename);
         if (!f.exists()) {
-            try (PrintWriter writer = new PrintWriter(new FileWriter(f))) {
+            try (PrintWriter writer = new PrintWriter(
+                    new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8))) {
                 writer.print("[]");
             } catch (IOException e) {
                 e.printStackTrace();
@@ -110,7 +114,8 @@ public class RegisterManager {
         }
         root.add("registers", arr);
 
-        try (PrintWriter writer = new PrintWriter(new FileWriter(headerFile))) {
+        try (PrintWriter writer = new PrintWriter(
+                new OutputStreamWriter(new FileOutputStream(headerFile), StandardCharsets.UTF_8))) {
             writer.print(new GsonBuilder().setPrettyPrinting().create().toJson(root));
         } catch (IOException e) {
             e.printStackTrace();
@@ -228,7 +233,8 @@ public class RegisterManager {
     }
 
     private boolean isValidRegisterSchema(File f) {
-        try (BufferedReader reader = new BufferedReader(new FileReader(f))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8))) {
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) sb.append(line).append("\n");

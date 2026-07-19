@@ -1,11 +1,17 @@
 package utilities;
 
 import java.io.File;
+import java.awt.Font;
+import java.awt.GraphicsEnvironment;
 
 public class PathResolver {
 
     private static String cachedAssetsPath = null;
     private static String cachedDataFilePath = null;
+
+    private static Font cachedRegularFont = null;
+    private static Font cachedBoldFont = null;
+    private static Font cachedItalicFont = null;
 
     /**
      * Returns the absolute path to the assets directory.
@@ -99,5 +105,45 @@ public class PathResolver {
             System.err.println("✗ Asset validation failed: " + e.getMessage());
             throw e;
         }
+    }
+
+    public static String getFontDirPath() {
+        return new File(getAssetsPath(), "fonts").getAbsolutePath();
+    }
+
+    private static Font loadFontFile(String filename) {
+        File fontFile = new File(getFontDirPath(), filename);
+        try {
+            Font loaded = Font.createFont(Font.TRUETYPE_FONT, fontFile);
+            GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(loaded);
+            return loaded;
+        } catch (Exception e) {
+            System.err.println("Could not load font file: " + filename + " -- " + e.getMessage());
+            return null;
+        }
+    }
+
+    public static Font getRegularBaseFont() {
+        if (cachedRegularFont == null) {
+            Font loaded = loadFontFile("JetBrainsMono-Regular.ttf");
+            cachedRegularFont = (loaded != null) ? loaded : new Font("Segoe UI", Font.PLAIN, 12);
+        }
+        return cachedRegularFont;
+    }
+
+    public static Font getBoldBaseFont() {
+        if (cachedBoldFont == null) {
+            Font loaded = loadFontFile("JetBrainsMono-Bold.ttf");
+            cachedBoldFont = (loaded != null) ? loaded : new Font("Segoe UI", Font.BOLD, 12);
+        }
+        return cachedBoldFont;
+    }
+
+    public static Font getItalicBaseFont() {
+        if (cachedItalicFont == null) {
+            Font loaded = loadFontFile("JetBrainsMono-Italic.ttf");
+            cachedItalicFont = (loaded != null) ? loaded : new Font("Segoe UI", Font.ITALIC, 12);
+        }
+        return cachedItalicFont;
     }
 }
