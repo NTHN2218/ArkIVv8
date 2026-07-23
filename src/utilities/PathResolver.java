@@ -34,6 +34,20 @@ public class PathResolver {
         return cachedAssetsPath;
     }
 
+    public static String getDataDirPath() {
+        File dataDir = new File(getAssetsPath(), "data");
+
+        if (!dataDir.exists() || !dataDir.isDirectory()) {
+            throw new RuntimeException(
+                    "Data directory not found at: " + dataDir.getAbsolutePath()
+            );
+        }
+
+        return dataDir.getAbsolutePath();
+    }
+
+
+
     /**
      * Returns the absolute path to assets/data.json
      */
@@ -108,7 +122,15 @@ public class PathResolver {
     }
 
     public static String getFontDirPath() {
-        return new File(getAssetsPath(), "fonts").getAbsolutePath();
+        File fontDir = new File(getAssetsPath(), "fonts");
+
+        if (!fontDir.exists() || !fontDir.isDirectory()) {
+            throw new RuntimeException(
+                    "Fonts directory not found at: " + fontDir.getAbsolutePath()
+            );
+        }
+
+        return fontDir.getAbsolutePath();
     }
 
     private static Font loadFontFile(String filename) {

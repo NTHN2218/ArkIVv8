@@ -33,7 +33,7 @@ public class RegisterManager {
     }
 
     public RegisterManager() {
-        assetsPath = PathResolver.getAssetsPath();
+        assetsPath = PathResolver.getDataDirPath();
         headerFile = new File(assetsPath, HEADER_FILE);
         loadOrInitHeader();
     }

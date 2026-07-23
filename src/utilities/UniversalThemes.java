@@ -17,7 +17,9 @@ import java.util.Map;
 
 public class UniversalThemes {
 
-    // ===== Theme Colors =====
+    ///==============================================================================================================
+    ///== Theme Colors
+    ///==============================================================================================================
     public static final Color BG_MAIN        = new Color(0x0F0F12);
     public static final Color BG_PANEL       = new Color(0x1A1A1E);
     public static final Color BG_COMPONENT   = new Color(0x222226);
@@ -40,15 +42,15 @@ public class UniversalThemes {
 
 
 
-//  public static final Color ACCENT_COLOR    = new Color(0xE67E22);
-//  public static final Color ACCENT_COLOR_DARK = new Color(0xC66A1A);
 
     public static final Color TAB_SELECTED   = ACCENT_COLOR;
     public static final Color TAB_UNSELECTED = BG_PANEL;
     public static final Color DISABLED_TEXT  = new Color(0x6B6B6B);
     public static final Color TXT_SELECTED   = Color.BLACK;
 
-    // ===== Fonts =====
+    ///==============================================================================================================
+    ///== Fonts
+    ///==============================================================================================================
     private static final Font BASE_REGULAR = PathResolver.getRegularBaseFont();
     private static final Font BASE_BOLD    = PathResolver.getBoldBaseFont();
     private static final Font BASE_ITALIC  = PathResolver.getItalicBaseFont();
@@ -82,6 +84,9 @@ public class UniversalThemes {
         return PathResolver.getRegularBaseFont().deriveFont((float) size);
     }
 
+    ///==============================================================================================================
+    ///== Dialog Shell & Helpers
+    ///==============================================================================================================
     public static final int DIALOG_CORNER_RADIUS = 16;
 
     public static class RoundedDialog {
@@ -245,7 +250,9 @@ public class UniversalThemes {
     }
 
 
-    // ===== UI Helpers =====
+    ///==============================================================================================================
+    ///== Button UI Helpers
+    ///==============================================================================================================
     public static class NoPressedButtonUI extends BasicButtonUI {
         @Override
         protected void paintButtonPressed(Graphics g, AbstractButton b) {
@@ -325,6 +332,9 @@ public class UniversalThemes {
 
 
 
+    ///==============================================================================================================
+    ///== Scrollbar Theme
+    ///==============================================================================================================
     public static void applyScrollbarTheme(JScrollPane scrollPane) {
 
         scrollPane.getVerticalScrollBar().setUI(new BasicScrollBarUI() {
@@ -460,6 +470,9 @@ public class UniversalThemes {
 
     }
 
+    ///==============================================================================================================
+    ///== CheckBox Theme
+    ///==============================================================================================================
     public static void applyCheckBoxTheme(JCheckBox checkBox) {
 
         boolean[] isHovered = {false};
@@ -559,6 +572,9 @@ public class UniversalThemes {
         checkBox.setFont(UI_FONT_BIG);
     }
 
+    ///==============================================================================================================
+    ///== Label Wrapping Helpers
+    ///==============================================================================================================
     private static int computeWrapWidth(Font font, String text, int minWidth, int maxWidth) {
         FontMetrics fm = Toolkit.getDefaultToolkit().getFontMetrics(font);
         int widest = 0;
@@ -579,10 +595,13 @@ public class UniversalThemes {
 
 
 
+    ///==============================================================================================================
+    ///== Popups & Confirm Dialogs
+    ///==============================================================================================================
     public static void showPopup(Component parent, String message, String title) {
         RoundedDialog rd = createRoundedDialogShell(parent, title);
 
-        JLabel messageLabel = createWrappingLabel(message, UI_FONT_BIG, TXT_PRIMARY, 200, 340);
+        JLabel messageLabel = createWrappingLabel(message, UI_FONT_SMALL3, TXT_PRIMARY, 200, 340);
         rd.body.add(messageLabel);
         rd.body.add(Box.createVerticalStrut(18));
 
@@ -632,7 +651,7 @@ public class UniversalThemes {
 
         JLabel messageLabel = createWrappingLabel(
                 "Are you sure you want to delete \u201C" + targetName + "\u201D?",
-                UI_FONT_BIG, TXT_PRIMARY, 220, 340
+                UI_FONT_SMALL3, TXT_PRIMARY, 220, 340
         );
         rd.body.add(messageLabel);
 
@@ -662,6 +681,9 @@ public class UniversalThemes {
         return result[0];
     }
 
+    ///==============================================================================================================
+    ///== Menu Theming
+    ///==============================================================================================================
     private static boolean menuUiManagerApplied = false;
 
     public static void applyMenuTheme(JMenu menu) {
@@ -713,6 +735,9 @@ public class UniversalThemes {
         });
     }
 
+    ///==============================================================================================================
+    ///== Misc
+    ///==============================================================================================================
     public static void flashBorder(JComponent component, Color flashColor, Color normalColor, int borderWidth) {
         final int[] count = {0};
         Timer timer = new Timer(100, null);
